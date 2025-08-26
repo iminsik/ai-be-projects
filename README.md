@@ -112,6 +112,14 @@ uv run python src/worker.py
 
 ### 🐳 Docker Compose (Development/Staging)
 ```bash
+# Automatic detection (recommended)
+./scripts/docker-compose.sh up -d
+
+# Manual commands:
+# Modern Docker (Docker Desktop 4.0+)
+docker compose up -d
+
+# Legacy Docker
 docker-compose up -d
 ```
 

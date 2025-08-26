@@ -165,6 +165,18 @@ kubectl apply -f k8s/backend-service.yaml
 kubectl apply -f k8s/ai-worker-deployment.yaml
 ```
 
+### Docker Compose Compatibility
+
+The system supports both modern and legacy Docker Compose syntax:
+
+```bash
+# Modern Docker (Docker Desktop 4.0+)
+docker compose up -d
+
+# Legacy Docker (older versions)
+docker-compose up -d
+```
+
 ### Deploy with Helm
 
 ```bash
