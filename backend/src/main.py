@@ -8,6 +8,12 @@ import redis.asyncio as redis
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
 
+try:
+    from .config import Config
+except ImportError:
+    # Fallback for direct execution
+    from config import Config
+
 # Initialize FastAPI app
 app = FastAPI(
     title="AI Job Queue API",
@@ -58,7 +64,13 @@ JOB_STATUS_PREFIX = "ai:job:status:"
 async def startup_event():
     """Initialize Redis connection on startup."""
     global redis_client
-    redis_client = redis.Redis(host="redis", port=6379, db=0, decode_responses=True)
+    redis_client = redis.Redis(
+        host=Config.REDIS_HOST,
+        port=Config.REDIS_PORT,
+        db=Config.REDIS_DB,
+        password=Config.REDIS_PASSWORD,
+        decode_responses=True,
+    )
     await redis_client.ping()
 
 

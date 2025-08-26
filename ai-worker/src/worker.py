@@ -20,24 +20,22 @@ from datasets import Dataset
 import numpy as np
 import pandas as pd
 
+try:
+    from .config import Config
+except ImportError:
+    # Fallback for direct execution
+    from config import Config
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
-# Redis configuration
-REDIS_HOST = os.getenv("REDIS_HOST", "redis")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
-REDIS_DB = int(os.getenv("REDIS_DB", 0))
-
 # Queue names
 TRAINING_QUEUE = "ai:training:queue"
 INFERENCE_QUEUE = "ai:inference:queue"
 JOB_STATUS_PREFIX = "ai:job:status:"
-
-# Model storage
-MODEL_STORAGE_PATH = "/app/models"
 
 
 class AIWorker:
@@ -49,7 +47,11 @@ class AIWorker:
     async def connect_redis(self):
         """Connect to Redis."""
         self.redis_client = redis.Redis(
-            host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB, decode_responses=True
+            host=Config.REDIS_HOST,
+            port=Config.REDIS_PORT,
+            db=Config.REDIS_DB,
+            password=Config.REDIS_PASSWORD,
+            decode_responses=True,
         )
         await self.redis_client.ping()
         logger.info("Connected to Redis")
@@ -111,7 +113,7 @@ class AIWorker:
 
             # Simulate model saving
             model_id = f"model_{job_id}"
-            model_path = os.path.join(MODEL_STORAGE_PATH, model_id)
+            model_path = os.path.join(Config.MODEL_STORAGE_PATH, model_id)
             os.makedirs(model_path, exist_ok=True)
 
             # Save dummy model info
@@ -163,7 +165,7 @@ class AIWorker:
 
             # Load model (in cache or from storage)
             if model_id not in self.models:
-                model_path = os.path.join(MODEL_STORAGE_PATH, model_id)
+                model_path = os.path.join(Config.MODEL_STORAGE_PATH, model_id)
                 model_info_path = os.path.join(model_path, "model_info.json")
 
                 if not os.path.exists(model_info_path):
@@ -233,10 +235,10 @@ class AIWorker:
         await self.connect_redis()
 
         # Create model storage directory
-        os.makedirs(MODEL_STORAGE_PATH, exist_ok=True)
+        os.makedirs(Config.MODEL_STORAGE_PATH, exist_ok=True)
 
         logger.info("AI Worker started")
-        logger.info(f"Model storage path: {MODEL_STORAGE_PATH}")
+        logger.info(f"Model storage path: {Config.MODEL_STORAGE_PATH}")
 
         # Run both queues concurrently
         await asyncio.gather(

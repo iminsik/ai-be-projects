@@ -32,14 +32,17 @@ dev = [
 ]
 
 gpu = [
-    "torch[cu118]>=2.0.0",
-    "torchvision[cu118]>=0.15.0",
-    "torchaudio[cu118]>=2.0.0",
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "torchaudio>=2.0.0",
 ]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
 
 [tool.black]
 line-length = 88

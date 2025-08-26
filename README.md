@@ -44,6 +44,8 @@ A microservices-based system that separates FastAPI backend from AI training/inf
 
 ## Quick Start
 
+### Option 1: Docker Compose (Recommended for Development)
+
 1. **Start all services:**
    ```bash
    docker-compose up -d
@@ -68,6 +70,28 @@ A microservices-based system that separates FastAPI backend from AI training/inf
    curl "http://localhost:8000/jobs/{job_id}/status"
    ```
 
+### Option 2: Local Development (No Docker)
+
+1. **Install prerequisites:**
+   ```bash
+   # Install uv
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   
+   # Install Redis
+   # macOS: brew install redis && brew services start redis
+   # Ubuntu: sudo apt install redis-server && sudo systemctl start redis-server
+   ```
+
+2. **Run the system:**
+   ```bash
+   ./scripts/run_local.sh
+   ```
+
+3. **Test the API:**
+   ```bash
+   python scripts/test_api.py
+   ```
+
 ## Development
 
 ### Backend Development
@@ -83,6 +107,38 @@ cd ai-worker
 uv sync
 uv run python src/worker.py
 ```
+
+## Deployment Options
+
+### 🐳 Docker Compose (Development/Staging)
+```bash
+docker-compose up -d
+```
+
+### 🏠 Local Development (No Docker)
+```bash
+./scripts/run_local.sh
+```
+
+### 🖥️ Traditional Server
+```bash
+# Install system dependencies
+sudo apt install python3.11 redis-server nginx
+
+# Setup services
+./scripts/setup_dev.sh
+sudo systemctl start redis-server
+sudo systemctl start ai-backend
+sudo systemctl start ai-worker
+```
+
+### ☁️ Cloud Deployment
+- **AWS**: EC2 with managed Redis
+- **GCP**: Compute Engine with Cloud Memorystore
+- **Azure**: VM with Azure Cache for Redis
+- **Kubernetes**: Native K8s deployment
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed deployment guides.
 
 ## API Endpoints
 
