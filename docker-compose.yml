@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+    volumes:
+      - ./backend:/app
+      - /app/.venv  # Exclude virtual environment from volume mount
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  ai-worker:
+    build:
+      context: ./ai-worker
+      dockerfile: Dockerfile
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+    volumes:
+      - ./ai-worker:/app
+      - /app/.venv  # Exclude virtual environment from volume mount
+      - ai_models:/app/models  # Persistent model storage
+    restart: unless-stopped
+    deploy:
+      replicas: 2  # Run multiple workers for scalability
+
+  # Optional: Add more AI workers with different configurations
+  ai-worker-gpu:
+    build:
+      context: ./ai-worker
+      dockerfile: Dockerfile.gpu  # You can create a GPU-specific Dockerfile
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+    volumes:
+      - ./ai-worker:/app
+      - /app/.venv
+      - ai_models:/app/models
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+    # Uncomment the following lines if you have GPU support
+    # runtime: nvidia
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=all
+
+volumes:
+  redis_data:
+    driver: local
+  ai_models:
+    driver: local
+
+networks:
+  default:
+    name: ai-job-queue-network

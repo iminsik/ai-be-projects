@@ -1,0 +1,39 @@
+FROM nvidia/cuda:11.8-devel-ubuntu20.04
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3.11 \
+    python3.11-dev \
+    python3-pip \
+    build-essential \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create symlink for python
+RUN ln -s /usr/bin/python3.11 /usr/bin/python
+
+# Install uv
+RUN pip3 install uv
+
+# Copy dependency files
+COPY pyproject.toml ./
+
+# Install dependencies with GPU support
+RUN uv sync --frozen --extra gpu
+
+# Copy source code
+COPY src/ ./src/
+
+# Create model storage directory
+RUN mkdir -p /app/models
+
+# Run the worker
+CMD ["uv", "run", "python", "src/worker.py"]
