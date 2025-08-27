@@ -10,7 +10,7 @@ RUN pip install uv
 COPY pyproject.toml ./
 
 # Install dependencies
-RUN uv sync --frozen
+RUN uv sync
 
 # Copy source code
 COPY src/ ./src/

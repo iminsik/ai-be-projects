@@ -27,7 +27,7 @@ RUN pip3 install uv
 COPY pyproject.toml ./
 
 # Install dependencies with GPU support
-RUN uv sync --frozen --extra gpu
+RUN uv sync --extra gpu
 
 # Copy source code
 COPY src/ ./src/
