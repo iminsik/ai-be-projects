@@ -43,6 +43,8 @@ class AIWorker:
         self.redis_client: Optional[redis.Redis] = None
         self.running = True
         self.models = {}  # Cache for loaded models
+        self.active_jobs = {}  # Track active jobs
+        self.semaphore = asyncio.Semaphore(Config.MAX_CONCURRENT_JOBS)
 
     async def connect_redis(self):
         """Connect to Redis."""
@@ -77,6 +79,16 @@ class AIWorker:
                 job_status["error"] = error
 
             await self.redis_client.set(status_key, json.dumps(job_status), ex=86400)
+
+    async def process_training_job_with_semaphore(self, job_data: Dict):
+        """Process a training job with resource limits."""
+        async with self.semaphore:
+            await self.process_training_job(job_data)
+
+    async def process_inference_job_with_semaphore(self, job_data: Dict):
+        """Process an inference job with resource limits."""
+        async with self.semaphore:
+            await self.process_inference_job(job_data)
 
     async def process_training_job(self, job_data: Dict):
         """Process a training job."""
@@ -211,7 +223,10 @@ class AIWorker:
                 if result:
                     _, job_data_str = result
                     job_data = json.loads(job_data_str)
-                    await self.process_training_job(job_data)
+                    # Process job concurrently with resource limits
+                    asyncio.create_task(
+                        self.process_training_job_with_semaphore(job_data)
+                    )
             except Exception as e:
                 logger.error(f"Error processing training queue: {str(e)}")
                 await asyncio.sleep(1)
@@ -225,7 +240,10 @@ class AIWorker:
                 if result:
                     _, job_data_str = result
                     job_data = json.loads(job_data_str)
-                    await self.process_inference_job(job_data)
+                    # Process job concurrently with resource limits
+                    asyncio.create_task(
+                        self.process_inference_job_with_semaphore(job_data)
+                    )
             except Exception as e:
                 logger.error(f"Error processing inference queue: {str(e)}")
                 await asyncio.sleep(1)
@@ -239,6 +257,10 @@ class AIWorker:
 
         logger.info("AI Worker started")
         logger.info(f"Model storage path: {Config.MODEL_STORAGE_PATH}")
+        logger.info(f"Max concurrent jobs: {Config.MAX_CONCURRENT_JOBS}")
+        logger.info(f"GPU enabled: {Config.USE_GPU}")
+        if Config.USE_GPU:
+            logger.info(f"GPU device: {Config.GPU_DEVICE}")
 
         # Run both queues concurrently
         await asyncio.gather(
@@ -249,6 +271,19 @@ class AIWorker:
         """Stop the worker."""
         self.running = False
         logger.info("AI Worker stopping...")
+
+    def get_status(self) -> Dict:
+        """Get worker status information."""
+        return {
+            "worker_id": Config.WORKER_ID,
+            "max_concurrent_jobs": Config.MAX_CONCURRENT_JOBS,
+            "active_jobs": len(self.active_jobs),
+            "available_slots": self.semaphore._value,
+            "gpu_enabled": Config.USE_GPU,
+            "gpu_device": Config.GPU_DEVICE if Config.USE_GPU else None,
+            "models_loaded": len(self.models),
+            "running": self.running,
+        }
 
 
 async def main():
