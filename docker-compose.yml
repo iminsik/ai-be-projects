@@ -35,10 +35,11 @@ services:
       timeout: 10s
       retries: 3
 
-  ai-worker:
+  # PyTorch 2.0 Workers (CPU)
+  ai-worker-pytorch-2.0:
     build:
       context: ./ai-worker
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.pytorch-2.0
     depends_on:
       redis:
         condition: service_healthy
@@ -46,19 +47,22 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=0
+      - MODEL_FRAMEWORK=pytorch
+      - MODEL_VERSION=2.0.0
+      - WORKER_TYPE=pytorch-2.0
     volumes:
       - ./ai-worker:/app
-      - /app/.venv  # Exclude virtual environment from volume mount
-      - ai_models:/app/models  # Persistent model storage
+      - /app/.venv
+      - ai_models:/app/models
     restart: unless-stopped
     deploy:
-      replicas: 2  # Run multiple workers for scalability
+      replicas: 2
 
-  # Optional: Add more AI workers with different configurations
-  ai-worker-gpu:
+  # PyTorch 2.1 Workers (CPU)
+  ai-worker-pytorch-2.1:
     build:
       context: ./ai-worker
-      dockerfile: Dockerfile.gpu  # You can create a GPU-specific Dockerfile
+      dockerfile: Dockerfile.pytorch-2.1
     depends_on:
       redis:
         condition: service_healthy
@@ -66,6 +70,9 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=0
+      - MODEL_FRAMEWORK=pytorch
+      - MODEL_VERSION=2.1.0
+      - WORKER_TYPE=pytorch-2.1
     volumes:
       - ./ai-worker:/app
       - /app/.venv
@@ -73,7 +80,105 @@ services:
     restart: unless-stopped
     deploy:
       replicas: 1
-    # Uncomment the following lines if you have GPU support
+
+  # TensorFlow Workers
+  ai-worker-tensorflow:
+    build:
+      context: ./ai-worker
+      dockerfile: Dockerfile.tensorflow
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - MODEL_FRAMEWORK=tensorflow
+      - MODEL_VERSION=2.13.0
+      - WORKER_TYPE=tensorflow
+    volumes:
+      - ./ai-worker:/app
+      - /app/.venv
+      - ai_models:/app/models
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+
+  # Scikit-learn Workers
+  ai-worker-sklearn:
+    build:
+      context: ./ai-worker
+      dockerfile: Dockerfile.sklearn
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - MODEL_FRAMEWORK=sklearn
+      - MODEL_VERSION=1.3.0
+      - WORKER_TYPE=sklearn
+    volumes:
+      - ./ai-worker:/app
+      - /app/.venv
+      - ai_models:/app/models
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+
+  # GPU Workers (PyTorch 2.0)
+  ai-worker-pytorch-2.0-gpu:
+    build:
+      context: ./ai-worker
+      dockerfile: Dockerfile.pytorch-2.0-gpu
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - MODEL_FRAMEWORK=pytorch
+      - MODEL_VERSION=2.0.0
+      - WORKER_TYPE=pytorch-2.0-gpu
+      - USE_GPU=true
+    volumes:
+      - ./ai-worker:/app
+      - /app/.venv
+      - ai_models:/app/models
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+    # Uncomment for GPU support
+    # runtime: nvidia
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=all
+
+  # GPU Workers (PyTorch 2.1)
+  ai-worker-pytorch-2.1-gpu:
+    build:
+      context: ./ai-worker
+      dockerfile: Dockerfile.pytorch-2.1-gpu
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - MODEL_FRAMEWORK=pytorch
+      - MODEL_VERSION=2.1.0
+      - WORKER_TYPE=pytorch-2.1-gpu
+      - USE_GPU=true
+    volumes:
+      - ./ai-worker:/app
+      - /app/.venv
+      - ai_models:/app/models
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+    # Uncomment for GPU support
     # runtime: nvidia
     # environment:
     #   - NVIDIA_VISIBLE_DEVICES=all

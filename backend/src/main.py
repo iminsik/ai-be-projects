@@ -24,6 +24,55 @@ app = FastAPI(
 # Redis connection
 redis_client: Optional[redis.Redis] = None
 
+# Model framework registry
+MODEL_FRAMEWORK_REGISTRY = {
+    "bert": {
+        "framework": "pytorch",
+        "version": "2.1.0",
+        "queue": "ai:training:pytorch-2.1:queue",
+    },
+    "gpt": {
+        "framework": "pytorch",
+        "version": "2.1.0",
+        "queue": "ai:training:pytorch-2.1:queue",
+    },
+    "resnet": {
+        "framework": "pytorch",
+        "version": "2.0.0",
+        "queue": "ai:training:pytorch-2.0:queue",
+    },
+    "vgg": {
+        "framework": "pytorch",
+        "version": "2.0.0",
+        "queue": "ai:training:pytorch-2.0:queue",
+    },
+    "inception": {
+        "framework": "tensorflow",
+        "version": "2.13.0",
+        "queue": "ai:training:tensorflow:queue",
+    },
+    "mobilenet": {
+        "framework": "tensorflow",
+        "version": "2.13.0",
+        "queue": "ai:training:tensorflow:queue",
+    },
+    "random_forest": {
+        "framework": "sklearn",
+        "version": "1.3.0",
+        "queue": "ai:training:sklearn:queue",
+    },
+    "svm": {
+        "framework": "sklearn",
+        "version": "1.3.0",
+        "queue": "ai:training:sklearn:queue",
+    },
+    "logistic_regression": {
+        "framework": "sklearn",
+        "version": "1.3.0",
+        "queue": "ai:training:sklearn:queue",
+    },
+}
+
 
 # Pydantic models
 class TrainingJobRequest(BaseModel):
@@ -33,6 +82,10 @@ class TrainingJobRequest(BaseModel):
         default_factory=dict, description="Training hyperparameters"
     )
     description: Optional[str] = Field(None, description="Job description")
+    requires_gpu: Optional[bool] = Field(False, description="Whether GPU is required")
+    framework_override: Optional[str] = Field(
+        None, description="Override framework selection"
+    )
 
 
 class InferenceJobRequest(BaseModel):
@@ -52,12 +105,24 @@ class JobStatus(BaseModel):
     result: Optional[Dict] = None
     error: Optional[str] = None
     metadata: Optional[Dict] = None
+    framework: Optional[str] = None
+    worker_type: Optional[str] = None
 
 
 # Redis keys
 TRAINING_QUEUE = "ai:training:queue"
 INFERENCE_QUEUE = "ai:inference:queue"
 JOB_STATUS_PREFIX = "ai:job:status:"
+
+# Framework-specific queues
+FRAMEWORK_QUEUES = {
+    "pytorch-2.0": "ai:training:pytorch-2.0:queue",
+    "pytorch-2.1": "ai:training:pytorch-2.1:queue",
+    "tensorflow": "ai:training:tensorflow:queue",
+    "sklearn": "ai:training:sklearn:queue",
+    "pytorch-2.0-gpu": "ai:training:pytorch-2.0-gpu:queue",
+    "pytorch-2.1-gpu": "ai:training:pytorch-2.1-gpu:queue",
+}
 
 
 @app.on_event("startup")
@@ -88,7 +153,51 @@ async def get_redis() -> redis.Redis:
     return redis_client
 
 
-async def create_job_status(job_id: str, job_type: str, metadata: Dict) -> JobStatus:
+def determine_framework_and_queue(
+    model_type: str,
+    requires_gpu: bool = False,
+    framework_override: Optional[str] = None,
+) -> tuple[str, str]:
+    """Determine the appropriate framework and queue for a model type."""
+    if framework_override:
+        # Use override if provided
+        if framework_override in FRAMEWORK_QUEUES:
+            return framework_override, FRAMEWORK_QUEUES[framework_override]
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid framework override: {framework_override}. Available: {list(FRAMEWORK_QUEUES.keys())}",
+            )
+
+    # Look up model type in registry
+    if model_type.lower() in MODEL_FRAMEWORK_REGISTRY:
+        model_info = MODEL_FRAMEWORK_REGISTRY[model_type.lower()]
+        framework = model_info["framework"]
+        version = model_info["version"]
+
+        # Determine if GPU version should be used
+        if requires_gpu and framework == "pytorch":
+            worker_type = f"{framework}-{version}-gpu"
+        else:
+            worker_type = f"{framework}-{version}"
+
+        if worker_type in FRAMEWORK_QUEUES:
+            return worker_type, FRAMEWORK_QUEUES[worker_type]
+
+    # Default fallback
+    if requires_gpu:
+        return "pytorch-2.1-gpu", FRAMEWORK_QUEUES["pytorch-2.1-gpu"]
+    else:
+        return "pytorch-2.1", FRAMEWORK_QUEUES["pytorch-2.1"]
+
+
+async def create_job_status(
+    job_id: str,
+    job_type: str,
+    metadata: Dict,
+    framework: str = None,
+    worker_type: str = None,
+) -> JobStatus:
     """Create a new job status entry."""
     now = datetime.utcnow()
     job_status = JobStatus(
@@ -98,6 +207,8 @@ async def create_job_status(job_id: str, job_type: str, metadata: Dict) -> JobSt
         created_at=now,
         updated_at=now,
         metadata=metadata,
+        framework=framework,
+        worker_type=worker_type,
     )
 
     redis_client = await get_redis()
@@ -142,8 +253,13 @@ async def get_job_status(job_id: str) -> Optional[JobStatus]:
 
 @app.post("/jobs/training", response_model=JobStatus)
 async def submit_training_job(request: TrainingJobRequest):
-    """Submit a new training job to the queue."""
+    """Submit a new training job to the appropriate framework-specific queue."""
     job_id = str(uuid.uuid4())
+
+    # Determine framework and queue
+    worker_type, queue_name = determine_framework_and_queue(
+        request.model_type, request.requires_gpu, request.framework_override
+    )
 
     # Create job status
     metadata = {
@@ -151,10 +267,18 @@ async def submit_training_job(request: TrainingJobRequest):
         "data_path": request.data_path,
         "hyperparameters": request.hyperparameters,
         "description": request.description,
+        "requires_gpu": request.requires_gpu,
+        "framework_override": request.framework_override,
     }
-    job_status = await create_job_status(job_id, "training", metadata)
+    job_status = await create_job_status(
+        job_id,
+        "training",
+        metadata,
+        framework=worker_type.split("-")[0],
+        worker_type=worker_type,
+    )
 
-    # Add to training queue
+    # Add to framework-specific queue
     redis_client = await get_redis()
     job_data = {
         "job_id": job_id,
@@ -162,9 +286,12 @@ async def submit_training_job(request: TrainingJobRequest):
         "data_path": request.data_path,
         "hyperparameters": request.hyperparameters,
         "description": request.description,
+        "requires_gpu": request.requires_gpu,
+        "worker_type": worker_type,
+        "framework": worker_type.split("-")[0],
     }
 
-    await redis_client.lpush(TRAINING_QUEUE, json.dumps(job_data))
+    await redis_client.lpush(queue_name, json.dumps(job_data))
 
     return job_status
 
@@ -173,6 +300,11 @@ async def submit_training_job(request: TrainingJobRequest):
 async def submit_inference_job(request: InferenceJobRequest):
     """Submit a new inference job to the queue."""
     job_id = str(uuid.uuid4())
+
+    # For inference, we need to determine the framework from the model
+    # This would typically be stored in the model metadata
+    # For now, we'll use a default queue
+    queue_name = INFERENCE_QUEUE
 
     # Create job status
     metadata = {
@@ -191,7 +323,7 @@ async def submit_inference_job(request: InferenceJobRequest):
         "parameters": request.parameters,
     }
 
-    await redis_client.lpush(INFERENCE_QUEUE, json.dumps(job_data))
+    await redis_client.lpush(queue_name, json.dumps(job_data))
 
     return job_status
 
@@ -224,6 +356,16 @@ async def list_jobs(limit: int = 50):
     # Sort by creation time (newest first)
     jobs.sort(key=lambda x: x.created_at, reverse=True)
     return jobs
+
+
+@app.get("/frameworks")
+async def list_available_frameworks():
+    """List available frameworks and their configurations."""
+    return {
+        "frameworks": list(FRAMEWORK_QUEUES.keys()),
+        "model_registry": MODEL_FRAMEWORK_REGISTRY,
+        "queues": FRAMEWORK_QUEUES,
+    }
 
 
 @app.get("/health")

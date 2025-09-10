@@ -1,0 +1,33 @@
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv
+RUN pip install uv
+
+# Copy dependency files
+COPY pyproject.toml ./
+
+# Install PyTorch 2.1 dependencies
+RUN uv sync --extra pytorch-2.1
+
+# Copy source code
+COPY src/ ./src/
+
+# Create model storage directory
+RUN mkdir -p /app/models
+
+# Set environment variables
+ENV MODEL_FRAMEWORK=pytorch
+ENV MODEL_VERSION=2.1.0
+ENV WORKER_TYPE=pytorch-2.1
+
+# Run the worker
+CMD ["uv", "run", "python", "src/worker.py"]

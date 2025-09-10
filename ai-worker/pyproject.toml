@@ -9,17 +9,70 @@ dependencies = [
     "redis>=5.0.0",
     "numpy>=1.24.0",
     "pandas>=2.0.0",
-    "scikit-learn>=1.3.0",
-    "torch>=2.0.0",
-    "transformers>=4.30.0",
-    "datasets>=2.14.0",
-    "accelerate>=0.20.0",
-    "tqdm>=4.65.0",
     "psutil>=5.9.0",
 ]
 requires-python = ">=3.10"
 
 [project.optional-dependencies]
+# PyTorch 2.0 environment
+pytorch-2.0 = [
+    "torch==2.0.1",
+    "torchvision==0.15.2",
+    "torchaudio==2.0.2",
+    "transformers>=4.30.0,<4.35.0",
+    "datasets>=2.14.0",
+    "accelerate>=0.20.0",
+    "tqdm>=4.65.0",
+]
+
+# PyTorch 2.1 environment
+pytorch-2.1 = [
+    "torch==2.1.0",
+    "torchvision==0.16.0",
+    "torchaudio==2.1.0",
+    "transformers>=4.35.0",
+    "datasets>=2.14.0",
+    "accelerate>=0.20.0",
+    "tqdm>=4.65.0",
+]
+
+# TensorFlow environment
+tensorflow = [
+    "tensorflow==2.13.0",
+    "tensorflow-hub>=0.14.0",
+    "tensorflow-datasets>=4.9.0",
+    "tqdm>=4.65.0",
+]
+
+# Scikit-learn environment
+sklearn = [
+    "scikit-learn>=1.3.0",
+    "joblib>=1.3.0",
+    "tqdm>=4.65.0",
+]
+
+# GPU support for PyTorch 2.0
+pytorch-2.0-gpu = [
+    "torch==2.0.1+cu118",
+    "torchvision==0.15.2+cu118",
+    "torchaudio==2.0.2+cu118",
+    "transformers>=4.30.0,<4.35.0",
+    "datasets>=2.14.0",
+    "accelerate>=0.20.0",
+    "tqdm>=4.65.0",
+]
+
+# GPU support for PyTorch 2.1
+pytorch-2.1-gpu = [
+    "torch==2.1.0+cu118",
+    "torchvision==0.16.0+cu118",
+    "torchaudio==2.1.0+cu118",
+    "transformers>=4.35.0",
+    "datasets>=2.14.0",
+    "accelerate>=0.20.0",
+    "tqdm>=4.65.0",
+]
+
 dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
@@ -29,12 +82,6 @@ dev = [
     "jupyter>=1.0.0",
     "matplotlib>=3.7.0",
     "seaborn>=0.12.0",
-]
-
-gpu = [
-    "torch>=2.0.0",
-    "torchvision>=0.15.0",
-    "torchaudio>=2.0.0",
 ]
 
 [build-system]
