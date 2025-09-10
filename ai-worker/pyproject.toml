@@ -14,7 +14,7 @@ dependencies = [
 requires-python = ">=3.10"
 
 [project.optional-dependencies]
-# PyTorch 2.0 environment
+# PyTorch 2.0 environment (CPU-only)
 pytorch_2_0 = [
     "torch==2.0.1",
     "torchvision==0.15.2",
@@ -25,7 +25,7 @@ pytorch_2_0 = [
     "tqdm>=4.65.0",
 ]
 
-# PyTorch 2.1 environment
+# PyTorch 2.1 environment (CPU-only)
 pytorch_2_1 = [
     "torch==2.1.0",
     "torchvision==0.16.0",
@@ -51,7 +51,7 @@ sklearn = [
     "tqdm>=4.65.0",
 ]
 
-# GPU support for PyTorch 2.0 (using standard PyTorch - CUDA support is included)
+# GPU support for PyTorch 2.0 (CUDA 11.8)
 pytorch_2_0_gpu = [
     "torch==2.0.1",
     "torchvision==0.15.2",
@@ -62,7 +62,7 @@ pytorch_2_0_gpu = [
     "tqdm>=4.65.0",
 ]
 
-# GPU support for PyTorch 2.1 (using standard PyTorch - CUDA support is included)
+# GPU support for PyTorch 2.1 (CUDA 12.1)
 pytorch_2_1_gpu = [
     "torch==2.1.0",
     "torchvision==0.16.0",
@@ -98,6 +98,46 @@ target-version = ['py310']
 [tool.isort]
 profile = "black"
 line_length = 88
+
+# PyTorch indexes for different CUDA versions
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu118"
+url = "https://download.pytorch.org/whl/cu118"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
+
+# Source configuration for PyTorch packages
+[tool.uv.sources]
+# CPU-only builds for non-GPU extras
+torch = [
+    { index = "pytorch-cpu", extra = "pytorch_2_0" },
+    { index = "pytorch-cpu", extra = "pytorch_2_1" },
+    { index = "pytorch-cu118", extra = "pytorch_2_0_gpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { index = "pytorch-cu121", extra = "pytorch_2_1_gpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+
+torchvision = [
+    { index = "pytorch-cpu", extra = "pytorch_2_0" },
+    { index = "pytorch-cpu", extra = "pytorch_2_1" },
+    { index = "pytorch-cu118", extra = "pytorch_2_0_gpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { index = "pytorch-cu121", extra = "pytorch_2_1_gpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+
+torchaudio = [
+    { index = "pytorch-cpu", extra = "pytorch_2_0" },
+    { index = "pytorch-cpu", extra = "pytorch_2_1" },
+    { index = "pytorch-cu118", extra = "pytorch_2_0_gpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { index = "pytorch-cu121", extra = "pytorch_2_1_gpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
 
 [tool.uv]
 conflicts = [
