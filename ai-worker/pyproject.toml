@@ -51,22 +51,22 @@ sklearn = [
     "tqdm>=4.65.0",
 ]
 
-# GPU support for PyTorch 2.0
+# GPU support for PyTorch 2.0 (using standard PyTorch - CUDA support is included)
 pytorch_2_0_gpu = [
-    "torch==2.0.1+cu118",
-    "torchvision==0.15.2+cu118",
-    "torchaudio==2.0.2+cu118",
+    "torch==2.0.1",
+    "torchvision==0.15.2",
+    "torchaudio==2.0.2",
     "transformers>=4.30.0,<4.35.0",
     "datasets>=2.14.0",
     "accelerate>=0.20.0",
     "tqdm>=4.65.0",
 ]
 
-# GPU support for PyTorch 2.1
+# GPU support for PyTorch 2.1 (using standard PyTorch - CUDA support is included)
 pytorch_2_1_gpu = [
-    "torch==2.1.0+cu118",
-    "torchvision==0.16.0+cu118",
-    "torchaudio==2.1.0+cu118",
+    "torch==2.1.0",
+    "torchvision==0.16.0",
+    "torchaudio==2.1.0",
     "transformers>=4.35.0",
     "datasets>=2.14.0",
     "accelerate>=0.20.0",
@@ -98,6 +98,50 @@ target-version = ['py310']
 [tool.isort]
 profile = "black"
 line_length = 88
+
+[tool.uv]
+conflicts = [
+    [
+        { extra = "pytorch_2_0" },
+        { extra = "pytorch_2_1" },
+    ],
+    [
+        { extra = "pytorch_2_0_gpu" },
+        { extra = "pytorch_2_1_gpu" },
+    ],
+    [
+        { extra = "pytorch_2_0" },
+        { extra = "pytorch_2_0_gpu" },
+    ],
+    [
+        { extra = "pytorch_2_1" },
+        { extra = "pytorch_2_1_gpu" },
+    ],
+    [
+        { extra = "pytorch_2_0" },
+        { extra = "pytorch_2_1_gpu" },
+    ],
+    [
+        { extra = "pytorch_2_1" },
+        { extra = "pytorch_2_0_gpu" },
+    ],
+    [
+        { extra = "pytorch_2_0" },
+        { extra = "tensorflow" },
+    ],
+    [
+        { extra = "pytorch_2_1" },
+        { extra = "tensorflow" },
+    ],
+    [
+        { extra = "pytorch_2_0_gpu" },
+        { extra = "tensorflow" },
+    ],
+    [
+        { extra = "pytorch_2_1_gpu" },
+        { extra = "tensorflow" },
+    ],
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
