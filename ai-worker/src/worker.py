@@ -414,6 +414,7 @@ class AIWorker:
         input_data = job_data["input_data"]
         parameters = job_data.get("parameters", {})
         requires_gpu = job_data.get("requires_gpu", Config.USE_GPU)
+        model_type = job_data.get("model_type", "unknown")
 
         logger.info(
             f"Starting inference job {job_id} for model type: {model_type} using {self.framework}"
@@ -435,3 +436,154 @@ class AIWorker:
                     memory_available = await self.gpu_manager.wait_for_memory(
                         required_memory,
                         device_id=job_data.get("gpu_device", 0),
+                        timeout=300,
+                    )
+
+                    if not memory_available:
+                        error_msg = f"GPU memory timeout. Required: {required_memory}MB"
+                        await self.update_job_status(job_id, "failed", error=error_msg)
+                        return
+
+                    # Optimize job parameters based on available memory
+                    job_data = await self.gpu_manager.optimize_job_parameters(job_data)
+                    parameters = job_data.get("parameters", {})
+                    logger.info(f"Job {job_id} parameters optimized for GPU memory")
+
+            # Allocate GPU memory if needed
+            if requires_gpu and self.gpu_manager:
+                required_memory = await self.gpu_manager.estimate_model_memory(
+                    model_type, 1
+                )
+
+                memory_allocated = await self.gpu_manager.allocate_memory(
+                    job_id, required_memory, device_id=job_data.get("gpu_device", 0)
+                )
+
+                if not memory_allocated:
+                    error_msg = f"Failed to allocate {required_memory}MB GPU memory"
+                    await self.update_job_status(job_id, "failed", error=error_msg)
+                    return
+
+            # Update status to running
+            await self.update_job_status(job_id, "running")
+
+            # Framework-specific inference
+            if self.framework == "pytorch":
+                result = await self._infer_pytorch_model(
+                    job_id, model_type, input_data, parameters
+                )
+            elif self.framework == "tensorflow":
+                result = await self._infer_tensorflow_model(
+                    job_id, model_type, input_data, parameters
+                )
+            elif self.framework == "sklearn":
+                result = await self._infer_sklearn_model(
+                    job_id, model_type, input_data, parameters
+                )
+            else:
+                raise ValueError(f"Unsupported framework: {self.framework}")
+
+            # Update status to completed
+            await self.update_job_status(job_id, "completed", result)
+
+            logger.info(f"Inference job {job_id} completed successfully")
+
+            # Cleanup GPU memory after successful completion
+            if requires_gpu and self.gpu_manager:
+                await self.gpu_manager.deallocate_memory(job_id)
+
+        except Exception as e:
+            logger.error(f"Inference job {job_id} failed: {str(e)}")
+
+            # Cleanup GPU memory even on failure
+            if requires_gpu and self.gpu_manager:
+                await self.gpu_manager.deallocate_memory(job_id)
+
+            await self.update_job_status(job_id, "failed", error=str(e))
+
+    async def _infer_pytorch_model(
+        self, job_id: str, model_type: str, input_data: str, parameters: Dict
+    ) -> Dict:
+        """Run inference with a PyTorch model."""
+        import torch
+        import numpy as np
+
+        # Simulate PyTorch inference
+        logger.info(f"Running inference with PyTorch {model_type} model")
+        # Simulate inference time
+        await asyncio.sleep(1)
+
+        # Update progress
+        await self.update_job_status(
+            job_id, "running", {"progress": 1.0, "framework": "pytorch"}
+        )
+
+        return {
+            "model_id": f"pytorch_model_{job_id}",
+            "model_path": os.path.join(
+                Config.MODEL_STORAGE_PATH, f"pytorch_model_{job_id}"
+            ),
+            "framework": "pytorch",
+            "metrics": {
+                "accuracy": 0.95,
+                "inference_time": 1,
+            },
+        }
+
+    async def _infer_tensorflow_model(
+        self, job_id: str, model_type: str, input_data: str, parameters: Dict
+    ) -> Dict:
+        """Run inference with a TensorFlow model."""
+        import tensorflow as tf
+        import numpy as np
+
+        # Simulate TensorFlow inference
+        logger.info(f"Running inference with TensorFlow {model_type} model")
+        # Simulate inference time
+        await asyncio.sleep(1)
+
+        # Update progress
+        await self.update_job_status(
+            job_id, "running", {"progress": 1.0, "framework": "tensorflow"}
+        )
+
+        return {
+            "model_id": f"tensorflow_model_{job_id}",
+            "model_path": os.path.join(
+                Config.MODEL_STORAGE_PATH, f"tensorflow_model_{job_id}"
+            ),
+            "framework": "tensorflow",
+            "metrics": {
+                "accuracy": 0.92,
+                "inference_time": 1,
+            },
+        }
+
+    async def _infer_sklearn_model(
+        self, job_id: str, model_type: str, input_data: str, parameters: Dict
+    ) -> Dict:
+        """Run inference with a scikit-learn model."""
+        import sklearn
+        import numpy as np
+
+        # Simulate scikit-learn inference
+        logger.info(f"Running inference with scikit-learn {model_type} model")
+        # Simulate inference time
+        await asyncio.sleep(1)
+
+        # Update progress
+        await self.update_job_status(
+            job_id, "running", {"progress": 1.0, "framework": "sklearn"}
+        )
+
+        return {
+            "model_id": f"sklearn_model_{job_id}",
+            "model_path": os.path.join(
+                Config.MODEL_STORAGE_PATH, f"sklearn_model_{job_id}"
+            ),
+            "framework": "sklearn",
+            "metrics": {
+                "accuracy": 0.90,
+                "inference_time": 1,
+            },
+        }
