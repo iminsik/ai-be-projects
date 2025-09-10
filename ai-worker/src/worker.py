@@ -124,10 +124,10 @@ class AIWorker:
                         model_type, batch_size
                     )
 
-                    memory_available = await self.gpu_manager.wait_for_gpu_memory(
+                    memory_available = await self.gpu_manager.wait_for_memory(
                         required_memory,
                         device_id=job_data.get("gpu_device", 0),
-                        timeout_seconds=300,
+                        timeout=300,
                     )
 
                     if not memory_available:
@@ -136,11 +136,25 @@ class AIWorker:
                         return
 
                     # Optimize job parameters based on available memory
-                    job_data = await self.job_queue_manager.optimize_job_parameters(
-                        job_data
-                    )
+                    job_data = await self.gpu_manager.optimize_job_parameters(job_data)
                     hyperparameters = job_data.get("hyperparameters", {})
                     logger.info(f"Job {job_id} parameters optimized for GPU memory")
+
+            # Allocate GPU memory if needed
+            if requires_gpu and self.gpu_manager:
+                batch_size = hyperparameters.get("batch_size", 8)
+                required_memory = await self.gpu_manager.estimate_model_memory(
+                    model_type, batch_size
+                )
+
+                memory_allocated = await self.gpu_manager.allocate_memory(
+                    job_id, required_memory, device_id=job_data.get("gpu_device", 0)
+                )
+
+                if not memory_allocated:
+                    error_msg = f"Failed to allocate {required_memory}MB GPU memory"
+                    await self.update_job_status(job_id, "failed", error=error_msg)
+                    return
 
             # Update status to running
             await self.update_job_status(job_id, "running")
@@ -202,18 +216,14 @@ class AIWorker:
 
             # Cleanup GPU memory after successful completion
             if requires_gpu and self.gpu_manager:
-                await self.gpu_manager.cleanup_gpu_memory(
-                    device_id=job_data.get("gpu_device", 0)
-                )
+                await self.gpu_manager.deallocate_memory(job_id)
 
         except Exception as e:
             logger.error(f"Training job {job_id} failed: {str(e)}")
 
             # Cleanup GPU memory even on failure
             if requires_gpu and self.gpu_manager:
-                await self.gpu_manager.cleanup_gpu_memory(
-                    device_id=job_data.get("gpu_device", 0)
-                )
+                await self.gpu_manager.deallocate_memory(job_id)
 
             await self.update_job_status(job_id, "failed", error=str(e))
 
@@ -352,6 +362,10 @@ class AIWorker:
                     "temperature_celsius": gpu_info.temperature,
                     "status": gpu_info.status.value,
                 }
+
+            # Add memory usage summary
+            memory_summary = await self.gpu_manager.get_memory_usage_summary()
+            status["memory_summary"] = memory_summary
 
         return status
 
