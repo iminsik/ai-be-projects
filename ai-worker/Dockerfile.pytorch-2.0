@@ -16,7 +16,7 @@ RUN pip install uv
 COPY pyproject.toml ./
 
 # Install PyTorch 2.0 dependencies
-RUN uv sync --extra pytorch-2.0
+RUN uv sync --extra pytorch_2_0
 
 # Copy source code
 COPY src/ ./src/

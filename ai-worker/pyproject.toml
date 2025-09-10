@@ -15,7 +15,7 @@ requires-python = ">=3.10"
 
 [project.optional-dependencies]
 # PyTorch 2.0 environment
-pytorch-2.0 = [
+pytorch_2_0 = [
     "torch==2.0.1",
     "torchvision==0.15.2",
     "torchaudio==2.0.2",
@@ -26,7 +26,7 @@ pytorch-2.0 = [
 ]
 
 # PyTorch 2.1 environment
-pytorch-2.1 = [
+pytorch_2_1 = [
     "torch==2.1.0",
     "torchvision==0.16.0",
     "torchaudio==2.1.0",
@@ -52,7 +52,7 @@ sklearn = [
 ]
 
 # GPU support for PyTorch 2.0
-pytorch-2.0-gpu = [
+pytorch_2_0_gpu = [
     "torch==2.0.1+cu118",
     "torchvision==0.15.2+cu118",
     "torchaudio==2.0.2+cu118",
@@ -63,7 +63,7 @@ pytorch-2.0-gpu = [
 ]
 
 # GPU support for PyTorch 2.1
-pytorch-2.1-gpu = [
+pytorch_2_1_gpu = [
     "torch==2.1.0+cu118",
     "torchvision==0.16.0+cu118",
     "torchaudio==2.1.0+cu118",

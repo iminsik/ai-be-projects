@@ -27,7 +27,7 @@ RUN pip3 install uv
 COPY pyproject.toml ./
 
 # Install PyTorch 2.0 GPU dependencies
-RUN uv sync --extra pytorch-2.0-gpu
+RUN uv sync --extra pytorch_2_0_gpu
 
 # Copy source code
 COPY src/ ./src/
