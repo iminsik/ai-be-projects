@@ -587,3 +587,76 @@ class AIWorker:
                 "inference_time": 1,
             },
         }
+
+    async def run(self):
+        """Main worker loop to process jobs from Redis queues."""
+        training_queue, inference_queue = get_queue_names()
+
+        logger.info(f"Starting worker loop for {self.worker_type}")
+        logger.info(f"Training queue: {training_queue}")
+        logger.info(f"Inference queue: {inference_queue}")
+
+        while self.running:
+            try:
+                # Check for training jobs
+                training_job = await self.redis_client.blpop(training_queue, timeout=1)
+                if training_job:
+                    job_data = json.loads(training_job[1])
+                    logger.info(f"Received training job: {job_data['job_id']}")
+                    asyncio.create_task(
+                        self.process_training_job_with_semaphore(job_data)
+                    )
+
+                # Check for inference jobs
+                inference_job = await self.redis_client.blpop(
+                    inference_queue, timeout=1
+                )
+                if inference_job:
+                    job_data = json.loads(inference_job[1])
+                    logger.info(f"Received inference job: {job_data['job_id']}")
+                    asyncio.create_task(
+                        self.process_inference_job_with_semaphore(job_data)
+                    )
+
+            except asyncio.CancelledError:
+                logger.info("Worker loop cancelled")
+                break
+            except Exception as e:
+                logger.error(f"Error in worker loop: {e}")
+                await asyncio.sleep(5)  # Wait before retrying
+
+        logger.info("Worker loop stopped")
+
+    def stop(self):
+        """Stop the worker."""
+        self.running = False
+
+
+async def main():
+    """Main function to run the AI worker."""
+    worker = AIWorker()
+
+    try:
+        # Connect to Redis
+        await worker.connect_redis()
+
+        # Get queue names
+        training_queue, inference_queue = get_queue_names()
+        logger.info(f"Worker started for {worker.worker_type}")
+        logger.info(f"Listening on queues: {training_queue}, {inference_queue}")
+
+        # Start the worker loop
+        await worker.run()
+
+    except KeyboardInterrupt:
+        logger.info("Worker stopped by user")
+    except Exception as e:
+        logger.error(f"Worker error: {e}")
+        raise
+    finally:
+        if worker.redis_client:
+            await worker.redis_client.close()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

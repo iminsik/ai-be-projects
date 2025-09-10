@@ -7,7 +7,7 @@ authors = [
 ]
 dependencies = [
     "redis>=5.0.0",
-    "numpy>=1.24.0",
+    "numpy>=1.24.0,<2.0.0",
     "pandas>=2.0.0",
     "psutil>=5.9.0",
 ]
@@ -144,7 +144,40 @@ conflicts = [
     [
         { extra = "pytorch_2_0" },
         { extra = "pytorch_2_1" },
+    ],
+    [
         { extra = "pytorch_2_0_gpu" },
+        { extra = "pytorch_2_1_gpu" },
+    ],
+    [
+        { extra = "pytorch_2_0" },
+        { extra = "pytorch_2_0_gpu" },
+    ],
+    [
+        { extra = "pytorch_2_1" },
+        { extra = "pytorch_2_1_gpu" },
+    ],
+    [
+        { extra = "pytorch_2_0" },
+        { extra = "pytorch_2_1_gpu" },
+    ],
+    [
+        { extra = "pytorch_2_1" },
+        { extra = "pytorch_2_0_gpu" },
+    ],
+    [
+        { extra = "pytorch_2_0" },
+        { extra = "tensorflow" },
+    ],
+    [
+        { extra = "pytorch_2_1" },
+        { extra = "tensorflow" },
+    ],
+    [
+        { extra = "pytorch_2_0_gpu" },
+        { extra = "tensorflow" },
+    ],
+    [
         { extra = "pytorch_2_1_gpu" },
         { extra = "tensorflow" },
     ],
