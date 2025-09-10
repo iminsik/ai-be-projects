@@ -19,6 +19,8 @@ A microservices-based system that separates FastAPI backend from AI training/inf
 ## Key Features
 
 - **Independent Dependencies**: Backend and AI workers use separate dependency management
+- **Multiple ML Frameworks**: Support for PyTorch 2.0/2.1, TensorFlow, and Scikit-learn
+- **GPU Support**: CUDA-enabled PyTorch workers for GPU acceleration
 - **Scalable**: Multiple AI workers can be deployed independently
 - **Job Queue**: Redis-based job queue with status tracking
 - **Docker Support**: Easy deployment with Docker Compose
@@ -102,15 +104,54 @@ uv run python -m uvicorn src.main:app --reload
 ```
 
 ### AI Worker Development
+
+**For PyTorch 2.0:**
 ```bash
 cd ai-worker
-uv sync
+uv sync --extra pytorch_2_0
+uv run python src/worker.py
+```
+
+**For PyTorch 2.1:**
+```bash
+cd ai-worker
+uv sync --extra pytorch_2_1
+uv run python src/worker.py
+```
+
+**For TensorFlow:**
+```bash
+cd ai-worker
+uv sync --extra tensorflow
+uv run python src/worker.py
+```
+
+**For Scikit-learn:**
+```bash
+cd ai-worker
+uv sync --extra sklearn
+uv run python src/worker.py
+```
+
+**For GPU support (PyTorch 2.0):**
+```bash
+cd ai-worker
+uv sync --extra pytorch_2_0_gpu
+uv run python src/worker.py
+```
+
+**For GPU support (PyTorch 2.1):**
+```bash
+cd ai-worker
+uv sync --extra pytorch_2_1_gpu
 uv run python src/worker.py
 ```
 
 ## Deployment Options
 
 ### 🐳 Docker Compose (Development/Staging)
+
+**Start all services:**
 ```bash
 # Automatic detection (recommended)
 ./scripts/docker-compose.sh up -d
@@ -123,9 +164,62 @@ docker compose up -d
 docker-compose up -d
 ```
 
+**Start specific AI worker types:**
+```bash
+# PyTorch 2.0 workers only
+docker compose up -d redis backend ai-worker-pytorch-2.0
+
+# PyTorch 2.1 workers only  
+docker compose up -d redis backend ai-worker-pytorch-2.1
+
+# TensorFlow workers only
+docker compose up -d redis backend ai-worker-tensorflow
+
+# Scikit-learn workers only
+docker compose up -d redis backend ai-worker-sklearn
+
+# GPU workers (PyTorch 2.0)
+docker compose up -d redis backend ai-worker-pytorch-2.0-gpu
+
+# GPU workers (PyTorch 2.1)
+docker compose up -d redis backend ai-worker-pytorch-2.1-gpu
+```
+
 ### 🏠 Local Development (No Docker)
+
+**Start the system:**
 ```bash
 ./scripts/run_local.sh
+```
+
+**Manual setup:**
+```bash
+# Terminal 1: Start Redis
+redis-server
+
+# Terminal 2: Start Backend
+cd backend
+uv sync
+uv run python -m uvicorn src.main:app --reload
+
+# Terminal 3: Start AI Worker (choose one)
+cd ai-worker
+
+# For PyTorch 2.0
+uv sync --extra pytorch_2_0
+uv run python src/worker.py
+
+# For PyTorch 2.1  
+uv sync --extra pytorch_2_1
+uv run python src/worker.py
+
+# For TensorFlow
+uv sync --extra tensorflow
+uv run python src/worker.py
+
+# For Scikit-learn
+uv sync --extra sklearn
+uv run python src/worker.py
 ```
 
 ### 🖥️ Traditional Server
