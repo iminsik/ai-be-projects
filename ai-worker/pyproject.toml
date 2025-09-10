@@ -144,40 +144,7 @@ conflicts = [
     [
         { extra = "pytorch_2_0" },
         { extra = "pytorch_2_1" },
-    ],
-    [
         { extra = "pytorch_2_0_gpu" },
-        { extra = "pytorch_2_1_gpu" },
-    ],
-    [
-        { extra = "pytorch_2_0" },
-        { extra = "pytorch_2_0_gpu" },
-    ],
-    [
-        { extra = "pytorch_2_1" },
-        { extra = "pytorch_2_1_gpu" },
-    ],
-    [
-        { extra = "pytorch_2_0" },
-        { extra = "pytorch_2_1_gpu" },
-    ],
-    [
-        { extra = "pytorch_2_1" },
-        { extra = "pytorch_2_0_gpu" },
-    ],
-    [
-        { extra = "pytorch_2_0" },
-        { extra = "tensorflow" },
-    ],
-    [
-        { extra = "pytorch_2_1" },
-        { extra = "tensorflow" },
-    ],
-    [
-        { extra = "pytorch_2_0_gpu" },
-        { extra = "tensorflow" },
-    ],
-    [
         { extra = "pytorch_2_1_gpu" },
         { extra = "tensorflow" },
     ],
