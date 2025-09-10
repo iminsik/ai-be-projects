@@ -22,9 +22,11 @@ import pandas as pd
 
 try:
     from .config import Config
+    from .gpu_manager import GPUMemoryManager, JobQueueManager
 except ImportError:
     # Fallback for direct execution
     from config import Config
+    from gpu_manager import GPUMemoryManager, JobQueueManager
 
 # Configure logging
 logging.basicConfig(
@@ -45,6 +47,14 @@ class AIWorker:
         self.models = {}  # Cache for loaded models
         self.active_jobs = {}  # Track active jobs
         self.semaphore = asyncio.Semaphore(Config.MAX_CONCURRENT_JOBS)
+
+        # Initialize GPU memory manager if GPU is enabled
+        if Config.USE_GPU:
+            self.gpu_manager = GPUMemoryManager(safety_margin_mb=1000)
+            self.job_queue_manager = JobQueueManager(self.gpu_manager)
+        else:
+            self.gpu_manager = None
+            self.job_queue_manager = None
 
     async def connect_redis(self):
         """Connect to Redis."""
@@ -96,10 +106,42 @@ class AIWorker:
         model_type = job_data["model_type"]
         data_path = job_data["data_path"]
         hyperparameters = job_data.get("hyperparameters", {})
+        requires_gpu = job_data.get("requires_gpu", Config.USE_GPU)
 
         logger.info(f"Starting training job {job_id} for model type: {model_type}")
 
         try:
+            # GPU memory check and optimization
+            if requires_gpu and self.gpu_manager:
+                # Check if we can start the job
+                can_start, reason = await self.job_queue_manager.can_start_job(job_data)
+                if not can_start:
+                    logger.warning(f"Job {job_id} cannot start: {reason}")
+
+                    # Wait for GPU memory to become available
+                    batch_size = hyperparameters.get("batch_size", 1)
+                    required_memory = await self.gpu_manager.estimate_model_memory(
+                        model_type, batch_size
+                    )
+
+                    memory_available = await self.gpu_manager.wait_for_gpu_memory(
+                        required_memory,
+                        device_id=job_data.get("gpu_device", 0),
+                        timeout_seconds=300,
+                    )
+
+                    if not memory_available:
+                        error_msg = f"GPU memory timeout. Required: {required_memory}MB"
+                        await self.update_job_status(job_id, "failed", error=error_msg)
+                        return
+
+                    # Optimize job parameters based on available memory
+                    job_data = await self.job_queue_manager.optimize_job_parameters(
+                        job_data
+                    )
+                    hyperparameters = job_data.get("hyperparameters", {})
+                    logger.info(f"Job {job_id} parameters optimized for GPU memory")
+
             # Update status to running
             await self.update_job_status(job_id, "running")
 
@@ -158,8 +200,21 @@ class AIWorker:
 
             logger.info(f"Training job {job_id} completed successfully")
 
+            # Cleanup GPU memory after successful completion
+            if requires_gpu and self.gpu_manager:
+                await self.gpu_manager.cleanup_gpu_memory(
+                    device_id=job_data.get("gpu_device", 0)
+                )
+
         except Exception as e:
             logger.error(f"Training job {job_id} failed: {str(e)}")
+
+            # Cleanup GPU memory even on failure
+            if requires_gpu and self.gpu_manager:
+                await self.gpu_manager.cleanup_gpu_memory(
+                    device_id=job_data.get("gpu_device", 0)
+                )
+
             await self.update_job_status(job_id, "failed", error=str(e))
 
     async def process_inference_job(self, job_data: Dict):
@@ -272,9 +327,9 @@ class AIWorker:
         self.running = False
         logger.info("AI Worker stopping...")
 
-    def get_status(self) -> Dict:
+    async def get_status(self) -> Dict:
         """Get worker status information."""
-        return {
+        status = {
             "worker_id": Config.WORKER_ID,
             "max_concurrent_jobs": Config.MAX_CONCURRENT_JOBS,
             "active_jobs": len(self.active_jobs),
@@ -284,6 +339,21 @@ class AIWorker:
             "models_loaded": len(self.models),
             "running": self.running,
         }
+
+        # Add GPU memory information if available
+        if Config.USE_GPU and self.gpu_manager:
+            gpu_info = await self.gpu_manager.get_gpu_info(Config.GPU_DEVICE)
+            if gpu_info:
+                status["gpu_memory"] = {
+                    "total_mb": gpu_info.total_memory,
+                    "used_mb": gpu_info.used_memory,
+                    "free_mb": gpu_info.free_memory,
+                    "utilization_percent": gpu_info.utilization,
+                    "temperature_celsius": gpu_info.temperature,
+                    "status": gpu_info.status.value,
+                }
+
+        return status
 
 
 async def main():
