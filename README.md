@@ -21,6 +21,8 @@ A microservices-based system that separates FastAPI backend from AI training/inf
 - **Independent Dependencies**: Backend and AI workers use separate dependency management
 - **Multiple ML Frameworks**: Support for PyTorch 2.0/2.1, TensorFlow, and Scikit-learn
 - **GPU Support**: CUDA-enabled PyTorch workers for GPU acceleration
+- **Dynamic Worker Spawning**: Workers are created on-demand when jobs are submitted
+- **Resource Efficient**: No idle workers consuming resources
 - **Scalable**: Multiple AI workers can be deployed independently
 - **Job Queue**: Redis-based job queue with status tracking
 - **Docker Support**: Easy deployment with Docker Compose
@@ -44,16 +46,75 @@ A microservices-based system that separates FastAPI backend from AI training/inf
 └── README.md
 ```
 
+## Deployment Modes
+
+### Static Workers (Traditional)
+- All workers run continuously
+- Immediate job processing
+- Higher resource usage
+- Good for consistent workloads
+
+### Dynamic Workers (Docker)
+- Workers spawned on-demand in containers
+- Resource efficient
+- 20-45 second startup time
+- Perfect for production environments
+
+### Dynamic Workers (Local)
+- Workers spawned as local processes
+- No Docker required
+- 3-10 second startup time
+- Perfect for development and testing
+
 ## Quick Start
 
-### Option 1: Docker Compose (Recommended for Development)
+### Option 1: Local Dynamic Workers (Development)
 
-1. **Start all services:**
-   ```bash
-   docker-compose up -d
-   ```
+```bash
+# Start with local dynamic worker spawning (no Docker required)
+./scripts/run_local_dynamic.sh
+```
 
-2. **Submit a training job:**
+This will:
+- Start Redis, Backend API, and Local Worker Manager
+- Workers are spawned as local processes
+- Workers will be created automatically when jobs are submitted
+- Idle workers are cleaned up after 5-10 minutes
+- Perfect for development and testing
+
+### Option 2: Docker Dynamic Workers (Production)
+
+```bash
+# Start with Docker dynamic worker spawning
+./scripts/run_dynamic.sh
+```
+
+This will:
+- Start Redis, Backend API, and Worker Manager
+- Build all worker images for on-demand spawning
+- Workers will be created automatically when jobs are submitted
+- Idle workers are cleaned up after 5-10 minutes
+
+**Note:** The script automatically detects and uses the correct Docker Compose command (V1: `docker-compose` or V2: `docker compose`).
+
+### Option 3: Static Workers (Traditional)
+
+```bash
+# Start with all workers running
+./scripts/docker-compose.sh up -d
+```
+
+This will:
+- Start all services including all worker types
+- Workers run continuously
+- Immediate job processing
+- Higher resource usage
+
+**Note:** You can also use `docker-compose up -d` or `docker compose up -d` directly if you prefer.
+
+## Usage Examples
+
+### Submit a Training Job
    ```bash
    curl -X POST "http://localhost:8000/jobs/training" \
         -H "Content-Type: application/json" \

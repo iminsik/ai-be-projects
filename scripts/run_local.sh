@@ -49,10 +49,8 @@ sleep 3
 
 # Start AI worker
 echo "🤖 Starting AI worker..."
-cd ai-worker
-uv run python run_worker.py &
+./scripts/run_worker_local.sh pytorch-2.1 &
 WORKER_PID=$!
-cd ..
 
 echo ""
 echo "🎉 System is running!"
