@@ -42,6 +42,14 @@ A microservices-based system that separates FastAPI backend from AI training/inf
 │   ├── src/
 │   │   └── worker.py       # AI worker implementation
 │   └── Dockerfile
+├── frontend/               # React frontend
+│   ├── package.json        # Frontend dependencies (npm)
+│   ├── src/
+│   │   ├── components/     # React components
+│   │   ├── lib/           # Utilities and API client
+│   │   └── types/         # TypeScript types
+│   ├── Dockerfile
+│   └── nginx.conf
 ├── docker-compose.yml      # Service orchestration
 └── README.md
 ```
@@ -68,7 +76,21 @@ A microservices-based system that separates FastAPI backend from AI training/inf
 
 ## Quick Start
 
-### Option 1: Local Dynamic Workers (Development)
+### Option 1: Full Stack with Frontend (Recommended)
+
+```bash
+# Start complete system with frontend, backend, and workers
+./scripts/run_full_stack.sh
+```
+
+This will:
+- Start Redis, Backend API, Frontend, and all workers
+- Frontend available at: http://localhost:3000
+- Backend API available at: http://localhost:8000
+- Complete web interface for job management
+- Perfect for development and demonstration
+
+### Option 2: Local Dynamic Workers (Development)
 
 ```bash
 # Start with local dynamic worker spawning (no Docker required)
@@ -82,7 +104,7 @@ This will:
 - Idle workers are cleaned up after 5-10 minutes
 - Perfect for development and testing
 
-### Option 2: Docker Dynamic Workers (Production)
+### Option 3: Docker Dynamic Workers (Production)
 
 ```bash
 # Start with Docker dynamic worker spawning
@@ -97,7 +119,7 @@ This will:
 
 **Note:** The script automatically detects and uses the correct Docker Compose command (V1: `docker-compose` or V2: `docker compose`).
 
-### Option 3: Static Workers (Traditional)
+### Option 4: Static Workers (Traditional)
 
 ```bash
 # Start with all workers running
@@ -114,7 +136,25 @@ This will:
 
 ## Usage Examples
 
-### Submit a Training Job
+### Web Interface (Recommended)
+
+1. **Start the full stack:**
+   ```bash
+   ./scripts/run_full_stack.sh
+   ```
+
+2. **Open the web interface:**
+   Navigate to http://localhost:3000
+
+3. **Submit jobs through the UI:**
+   - Use the Training tab to submit ML training jobs
+   - Use the Inference tab to run inference with trained models
+   - Monitor job progress in the Jobs tab
+   - Check system status in the Status tab
+
+### API Usage (Command Line)
+
+1. **Submit a Training Job:**
    ```bash
    curl -X POST "http://localhost:8000/jobs/training" \
         -H "Content-Type: application/json" \
@@ -131,7 +171,7 @@ This will:
         }'
    ```
 
-3. **Submit an inference job:**
+2. **Submit an inference job:**
    ```bash
    curl -X POST "http://localhost:8000/jobs/inference" \
         -H "Content-Type: application/json" \
@@ -145,7 +185,7 @@ This will:
         }'
    ```
 
-4. **Check job status:**
+3. **Check job status:**
    ```bash
    curl "http://localhost:8000/jobs/{job_id}/status"
    ```
@@ -501,6 +541,17 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed deployment guides.
 - `GET /jobs` - List all jobs
 - `GET /health` - Health check
 - `GET /docs` - API documentation (Swagger UI)
+- `GET /workers/status` - Worker status
+- `GET /frameworks` - Available frameworks
+
+## Frontend Features
+
+- 🧠 **Training Jobs**: Submit ML training jobs with various frameworks
+- 🔮 **Inference Jobs**: Run inference using trained models
+- 📋 **Job Monitoring**: Real-time job status tracking and history
+- 📊 **System Status**: Monitor workers, frameworks, and system health
+- 🎨 **Modern UI**: Responsive design with Tailwind CSS
+- ⚡ **Fast Development**: Vite for lightning-fast hot reloading
 
 ## Framework Routing
 
