@@ -71,6 +71,28 @@ def test_uv_dependencies():
     else:
         print("⚠️  AI worker virtual environment not found")
 
+    # Test framework-specific dependencies
+    print("\nTesting framework-specific dependencies...")
+    frameworks = [
+        ("pytorch_2_0", "PyTorch 2.0"),
+        ("pytorch_2_1", "PyTorch 2.1"),
+        ("tensorflow", "TensorFlow"),
+        ("sklearn", "Scikit-learn"),
+        ("pytorch_2_0_gpu", "PyTorch 2.0 GPU"),
+        ("pytorch_2_1_gpu", "PyTorch 2.1 GPU"),
+    ]
+
+    for extra_name, display_name in frameworks:
+        # Check if the extra is defined in pyproject.toml
+        pyproject_path = os.path.join(worker_dir, "pyproject.toml")
+        if os.path.exists(pyproject_path):
+            with open(pyproject_path, "r") as f:
+                content = f.read()
+                if extra_name in content:
+                    print(f"✅ {display_name} dependencies configured")
+                else:
+                    print(f"⚠️  {display_name} dependencies not found in pyproject.toml")
+
 
 def main():
     """Run all tests."""
@@ -89,8 +111,18 @@ def main():
         print("🎉 All basic tests passed!")
         print("\nNext steps:")
         print("1. Install Redis: brew install redis && brew services start redis")
-        print("2. Run the system: ./scripts/run_local.sh")
-        print("3. Test the API: python scripts/test_api.py")
+        print("2. Install AI worker dependencies:")
+        print("   cd ai-worker")
+        print("   uv sync --extra pytorch_2_1  # or your preferred framework")
+        print("3. Run the system: ./scripts/run_local.sh")
+        print("4. Test the API: python scripts/test_api.py")
+        print("\nAvailable frameworks:")
+        print("   - PyTorch 2.0: uv sync --extra pytorch_2_0")
+        print("   - PyTorch 2.1: uv sync --extra pytorch_2_1")
+        print("   - TensorFlow: uv sync --extra tensorflow")
+        print("   - Scikit-learn: uv sync --extra sklearn")
+        print("   - GPU PyTorch 2.0: uv sync --extra pytorch_2_0_gpu")
+        print("   - GPU PyTorch 2.1: uv sync --extra pytorch_2_1_gpu")
     else:
         print("❌ Some tests failed. Please check the errors above.")
 

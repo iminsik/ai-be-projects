@@ -24,7 +24,7 @@ async def test_health():
 async def submit_training_job() -> str:
     """Submit a training job and return the job ID."""
     training_data = {
-        "model_type": "transformer",
+        "model_type": "bert",  # Use registered model type for PyTorch 2.1
         "data_path": "/data/training_data.csv",
         "hyperparameters": {"epochs": 5, "learning_rate": 0.001, "batch_size": 32},
         "description": "Test training job for sentiment analysis",
@@ -119,6 +119,40 @@ async def monitor_job(job_id: str, max_wait: int = 60):
     return None
 
 
+async def submit_multiple_framework_jobs():
+    """Submit training jobs for different frameworks."""
+    frameworks = [
+        {"model_type": "bert", "description": "PyTorch 2.1 BERT model"},
+        {"model_type": "resnet", "description": "PyTorch 2.0 ResNet model"},
+        {"model_type": "inception", "description": "TensorFlow Inception model"},
+        {"model_type": "random_forest", "description": "Scikit-learn Random Forest"},
+    ]
+
+    job_ids = []
+    for framework in frameworks:
+        training_data = {
+            "model_type": framework["model_type"],
+            "data_path": "/data/training_data.csv",
+            "hyperparameters": {"epochs": 3, "learning_rate": 0.001, "batch_size": 16},
+            "description": framework["description"],
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{BASE_URL}/jobs/training", json=training_data
+            )
+            if response.status_code == 200:
+                job = response.json()
+                print(f"✅ {framework['description']} job submitted: {job['job_id']}")
+                job_ids.append(job["job_id"])
+            else:
+                print(
+                    f"❌ Failed to submit {framework['description']}: {response.status_code}"
+                )
+
+    return job_ids
+
+
 async def main():
     """Main test function."""
     print("=== AI Job Queue API Test ===\n")
@@ -128,8 +162,8 @@ async def main():
     await test_health()
     print()
 
-    # Submit training job
-    print("2. Submitting training job...")
+    # Submit single training job
+    print("2. Submitting single training job...")
     training_job_id = await submit_training_job()
     if not training_job_id:
         return
@@ -155,8 +189,13 @@ async def main():
             await monitor_job(inference_job_id, max_wait=20)
             print()
 
+    # Test multiple frameworks
+    print("6. Testing multiple frameworks...")
+    multi_job_ids = await submit_multiple_framework_jobs()
+    print()
+
     # List all jobs
-    print("6. Listing all jobs...")
+    print("7. Listing all jobs...")
     await list_jobs()
 
 
