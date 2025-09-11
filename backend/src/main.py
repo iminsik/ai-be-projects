@@ -8,7 +8,7 @@ from typing import Dict, List, Optional
 
 import redis.asyncio as redis
 import httpx
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 # Configure logging
@@ -169,23 +169,68 @@ async def get_redis() -> redis.Redis:
 async def ensure_worker_available(worker_type: str) -> bool:
     """Ensure a worker is available for the specified type."""
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # First, check if workers are already available
+            status_response = await client.get(f"{WORKER_MANAGER_URL}/workers/status")
+            if status_response.status_code == 200:
+                status_data = status_response.json()
+                workers_by_type = status_data.get("workers_by_type", {})
+
+                # Check if we have available workers of this type
+                if workers_by_type.get(worker_type, 0) > 0:
+                    logger.info(f"Worker type {worker_type} is already available")
+                    return True
+
+            # No workers available, spawn a new one
+            logger.info(f"Spawning new worker of type: {worker_type}")
+            spawn_response = await client.post(
                 f"{WORKER_MANAGER_URL}/workers/ensure/{worker_type}"
             )
-            if response.status_code == 200:
-                result = response.json()
-                logger.info(
-                    f"Worker {result['worker_id']} is available for {worker_type}"
-                )
-                return True
-            else:
+
+            if spawn_response.status_code != 200:
                 logger.error(
-                    f"Failed to ensure worker for {worker_type}: {response.text}"
+                    f"Failed to spawn worker {worker_type}: {spawn_response.text}"
                 )
                 return False
+
+            # Wait for the worker to become available (polling)
+            logger.info(f"Waiting for worker {worker_type} to become available...")
+            max_wait_time = 60  # Maximum wait time in seconds
+            poll_interval = 2  # Poll every 2 seconds
+            waited_time = 0
+
+            while waited_time < max_wait_time:
+                await asyncio.sleep(poll_interval)
+                waited_time += poll_interval
+
+                # Check if worker is now available
+                status_response = await client.get(
+                    f"{WORKER_MANAGER_URL}/workers/status"
+                )
+                if status_response.status_code == 200:
+                    status_data = status_response.json()
+                    workers_by_type = status_data.get("workers_by_type", {})
+
+                    if workers_by_type.get(worker_type, 0) > 0:
+                        logger.info(
+                            f"Worker {worker_type} is now available after {waited_time}s"
+                        )
+                        return True
+
+                logger.info(
+                    f"Still waiting for worker {worker_type}... ({waited_time}s)"
+                )
+
+            logger.error(
+                f"Timeout waiting for worker {worker_type} to become available"
+            )
+            return False
+
+    except httpx.TimeoutException:
+        logger.error(f"Timeout while ensuring worker {worker_type} is available")
+        return False
     except Exception as e:
-        logger.error(f"Error ensuring worker for {worker_type}: {e}")
+        logger.error(f"Error ensuring worker {worker_type} is available: {str(e)}")
         return False
 
 
@@ -410,6 +455,29 @@ async def list_available_frameworks():
         "model_registry": MODEL_FRAMEWORK_REGISTRY,
         "queues": FRAMEWORK_QUEUES,
     }
+
+
+@app.get("/workers/status")
+async def get_worker_status():
+    """Get status of all workers from the worker manager."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(f"{WORKER_MANAGER_URL}/workers/status")
+            if response.status_code == 200:
+                return response.json()
+            else:
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"Worker manager unavailable: {response.text}",
+                )
+    except httpx.TimeoutException:
+        raise HTTPException(
+            status_code=503, detail="Timeout connecting to worker manager"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=503, detail=f"Error connecting to worker manager: {str(e)}"
+        )
 
 
 @app.get("/health")
