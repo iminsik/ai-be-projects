@@ -282,6 +282,53 @@ curl "http://localhost:8000/jobs/job_12345678-1234-1234-1234-123456789012/status
 
 ## Troubleshooting
 
+### Import Errors
+
+**Error: `ModuleNotFoundError: No module named 'torch'`**
+
+This error occurs when trying to run the worker locally without the proper framework dependencies installed.
+
+**Solution:**
+```bash
+# Install the required framework dependencies
+cd ai-worker
+uv sync --extra pytorch_2_1  # For PyTorch 2.1
+# or
+uv sync --extra tensorflow   # For TensorFlow
+# or
+uv sync --extra sklearn      # For Scikit-learn
+
+# Then run the worker
+uv run python run_worker.py
+```
+
+**Alternative: Use the worker runner script**
+```bash
+# This automatically installs dependencies and sets environment variables
+./scripts/run_worker_local.sh pytorch-2.1
+```
+
+### Docker Compose Compatibility
+
+**Error: "docker-compose is not installed"**
+
+This error occurs when the script can't find the Docker Compose command.
+
+**Solution:**
+The scripts automatically detect and use the correct Docker Compose command:
+- **Docker Compose V1**: `docker-compose` (standalone binary)
+- **Docker Compose V2**: `docker compose` (Docker plugin)
+
+**Manual usage:**
+```bash
+# Use the compatibility script (recommended)
+./scripts/docker-compose.sh up -d
+
+# Or use directly
+docker-compose up -d  # V1
+docker compose up -d  # V2
+```
+
 ### Q: Worker exits immediately after loading PyTorch
 
 **A:** This usually means the `main` function or `run` method is missing from the worker. The worker loads dependencies but doesn't start the job processing loop.

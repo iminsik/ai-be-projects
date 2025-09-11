@@ -1,12 +1,21 @@
 import asyncio
 import json
+import logging
+import os
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional
 
 import redis.asyncio as redis
+import httpx
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 try:
     from .config import Config
@@ -23,6 +32,9 @@ app = FastAPI(
 
 # Redis connection
 redis_client: Optional[redis.Redis] = None
+
+# Worker Manager configuration
+WORKER_MANAGER_URL = os.getenv("WORKER_MANAGER_URL", "http://worker-manager:8001")
 
 # Model framework registry
 MODEL_FRAMEWORK_REGISTRY = {
@@ -153,6 +165,29 @@ async def get_redis() -> redis.Redis:
     return redis_client
 
 
+async def ensure_worker_available(worker_type: str) -> bool:
+    """Ensure a worker is available for the specified type."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{WORKER_MANAGER_URL}/workers/ensure/{worker_type}"
+            )
+            if response.status_code == 200:
+                result = response.json()
+                logger.info(
+                    f"Worker {result['worker_id']} is available for {worker_type}"
+                )
+                return True
+            else:
+                logger.error(
+                    f"Failed to ensure worker for {worker_type}: {response.text}"
+                )
+                return False
+    except Exception as e:
+        logger.error(f"Error ensuring worker for {worker_type}: {e}")
+        return False
+
+
 def determine_framework_and_queue(
     model_type: str,
     requires_gpu: bool = False,
@@ -260,6 +295,14 @@ async def submit_training_job(request: TrainingJobRequest):
     worker_type, queue_name = determine_framework_and_queue(
         request.model_type, request.requires_gpu, request.framework_override
     )
+
+    # Ensure worker is available for this job type
+    worker_available = await ensure_worker_available(worker_type)
+    if not worker_available:
+        raise HTTPException(
+            status_code=503,
+            detail=f"No workers available for {worker_type}. Please try again later.",
+        )
 
     # Create job status
     metadata = {

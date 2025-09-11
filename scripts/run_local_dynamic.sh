@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Local development script - No Docker required
+# Local development script with dynamic workers - No Docker required
 set -e
 
-echo "🚀 Starting AI Job Queue System (Local Mode)"
+echo "🚀 Starting AI Job Queue System with Dynamic Workers (Local Mode)"
 
 # Check if uv is installed
 if ! command -v uv &> /dev/null; then
@@ -30,7 +30,7 @@ mkdir -p models
 # Function to cleanup background processes
 cleanup() {
     echo "🛑 Shutting down services..."
-    kill $BACKEND_PID $WORKER_PID 2>/dev/null || true
+    kill $BACKEND_PID $WORKER_MANAGER_PID 2>/dev/null || true
     exit 0
 }
 
@@ -47,22 +47,29 @@ cd ..
 # Wait a moment for backend to start
 sleep 3
 
-# Start AI worker
-echo "🤖 Starting AI worker..."
-./scripts/run_worker_local.sh pytorch-2.1 &
-WORKER_PID=$!
+# Start worker manager
+echo "🔧 Starting Local Worker Manager..."
+cd worker-manager
+uv run python -m uvicorn src.local_worker_manager:app --host 0.0.0.0 --port 8001 --reload &
+WORKER_MANAGER_PID=$!
+cd ..
+
+# Wait a moment for worker manager to start
+sleep 3
 
 echo ""
-echo "🎉 System is running!"
+echo "🎉 System is running with dynamic workers!"
 echo ""
 echo "Services:"
-echo "  - Backend: http://localhost:8000"
+echo "  - Backend API: http://localhost:8000"
+echo "  - Worker Manager: http://localhost:8001"
 echo "  - API Docs: http://localhost:8000/docs"
 echo "  - Redis: localhost:6379"
 echo ""
 echo "Test the system:"
 echo "  python scripts/test_api.py"
 echo ""
+echo "Workers will be spawned automatically when jobs are submitted!"
 echo "Press Ctrl+C to stop all services"
 
 # Wait for background processes
