@@ -54,18 +54,38 @@ A microservices-based system that separates FastAPI backend from AI training/inf
 - Higher resource usage
 - Good for consistent workloads
 
-### Dynamic Workers (Recommended)
-- Workers spawned on-demand
+### Dynamic Workers (Docker)
+- Workers spawned on-demand in containers
 - Resource efficient
 - 20-45 second startup time
-- Perfect for variable workloads
+- Perfect for production environments
+
+### Dynamic Workers (Local)
+- Workers spawned as local processes
+- No Docker required
+- 3-10 second startup time
+- Perfect for development and testing
 
 ## Quick Start
 
-### Option 1: Dynamic Workers (Recommended)
+### Option 1: Local Dynamic Workers (Development)
 
 ```bash
-# Start with dynamic worker spawning
+# Start with local dynamic worker spawning (no Docker required)
+./scripts/run_local_dynamic.sh
+```
+
+This will:
+- Start Redis, Backend API, and Local Worker Manager
+- Workers are spawned as local processes
+- Workers will be created automatically when jobs are submitted
+- Idle workers are cleaned up after 5-10 minutes
+- Perfect for development and testing
+
+### Option 2: Docker Dynamic Workers (Production)
+
+```bash
+# Start with Docker dynamic worker spawning
 ./scripts/run_dynamic.sh
 ```
 
@@ -77,7 +97,7 @@ This will:
 
 **Note:** The script automatically detects and uses the correct Docker Compose command (V1: `docker-compose` or V2: `docker compose`).
 
-### Option 2: Static Workers (Traditional)
+### Option 3: Static Workers (Traditional)
 
 ```bash
 # Start with all workers running

@@ -1,9 +1,11 @@
 #!/bin/bash
 
-# Local development script with dynamic workers - No Docker required
+# Local dynamic worker development script
+# No Docker required - uses local processes
+
 set -e
 
-echo "🚀 Starting AI Job Queue System with Dynamic Workers (Local Mode)"
+echo "🚀 Starting AI Job Queue System with Local Dynamic Workers..."
 
 # Check if uv is installed
 if ! command -v uv &> /dev/null; then
@@ -31,6 +33,8 @@ mkdir -p models
 cleanup() {
     echo "🛑 Shutting down services..."
     kill $BACKEND_PID $WORKER_MANAGER_PID 2>/dev/null || true
+    # Kill any worker processes
+    pkill -f "run_worker.py" 2>/dev/null || true
     exit 0
 }
 
@@ -47,29 +51,61 @@ cd ..
 # Wait a moment for backend to start
 sleep 3
 
-# Start worker manager
-echo "🔧 Starting Local Worker Manager..."
+# Start local worker manager
+echo "🤖 Starting Local Worker Manager..."
 cd worker-manager
-uv run python -m uvicorn src.local_worker_manager:app --host 0.0.0.0 --port 8001 --reload &
+uv run python src/local_worker_manager.py &
 WORKER_MANAGER_PID=$!
 cd ..
 
-# Wait a moment for worker manager to start
-sleep 3
+# Wait for services to be ready
+echo "⏳ Waiting for services to be ready..."
+sleep 5
+
+# Check service health
+echo "🔍 Checking service health..."
+
+# Check Backend
+if curl -f http://localhost:8000/health > /dev/null 2>&1; then
+    echo "✅ Backend API is healthy"
+else
+    echo "❌ Backend API is not responding"
+    exit 1
+fi
+
+# Check Worker Manager
+if curl -f http://localhost:8001/workers/status > /dev/null 2>&1; then
+    echo "✅ Local Worker Manager is healthy"
+else
+    echo "❌ Local Worker Manager is not responding"
+    exit 1
+fi
 
 echo ""
-echo "🎉 System is running with dynamic workers!"
+echo "🎉 AI Job Queue System with Local Dynamic Workers is running!"
 echo ""
-echo "Services:"
+echo "📊 Service URLs:"
 echo "  - Backend API: http://localhost:8000"
 echo "  - Worker Manager: http://localhost:8001"
-echo "  - API Docs: http://localhost:8000/docs"
 echo "  - Redis: localhost:6379"
 echo ""
-echo "Test the system:"
-echo "  python scripts/test_api.py"
+echo "🔧 Management Commands:"
+echo "  - Worker status: curl http://localhost:8001/workers/status"
+echo "  - Start worker: curl -X POST http://localhost:8001/workers/start/pytorch-2.1"
+echo "  - Stop worker: curl -X POST http://localhost:8001/workers/stop/{worker_id}"
 echo ""
-echo "Workers will be spawned automatically when jobs are submitted!"
+echo "📝 Example Usage:"
+echo "  # Submit a training job (will spawn a worker automatically)"
+echo "  curl -X POST http://localhost:8000/jobs/training \\"
+echo "    -H 'Content-Type: application/json' \\"
+echo "    -d '{\"model_type\": \"bert\", \"data_path\": \"/data/train.csv\", \"requires_gpu\": false}'"
+echo ""
+echo "  # Check worker status"
+echo "  curl http://localhost:8001/workers/status"
+echo ""
+echo "💡 Workers will be spawned automatically when jobs are submitted!"
+echo "   They will be cleaned up after being idle for 5-10 minutes."
+echo ""
 echo "Press Ctrl+C to stop all services"
 
 # Wait for background processes

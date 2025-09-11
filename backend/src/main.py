@@ -34,7 +34,8 @@ app = FastAPI(
 redis_client: Optional[redis.Redis] = None
 
 # Worker Manager configuration
-WORKER_MANAGER_URL = os.getenv("WORKER_MANAGER_URL", "http://worker-manager:8001")
+WORKER_MANAGER_URL = os.getenv("WORKER_MANAGER_URL", "http://localhost:8001")
+WORKER_MANAGER_TYPE = os.getenv("WORKER_MANAGER_TYPE", "local")  # "docker" or "local"
 
 # Model framework registry
 MODEL_FRAMEWORK_REGISTRY = {

@@ -1,0 +1,21 @@
+[project]
+name = "worker-manager-local"
+version = "0.1.0"
+description = "Local dynamic AI worker management service (no Docker)"
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "redis>=5.0.0",
+    "pydantic>=2.0.0",
+]
+requires-python = ">=3.10"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]

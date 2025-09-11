@@ -18,13 +18,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Worker configuration
-WORKER_CONFIGS = {
+# Worker configuration for local development
+LOCAL_WORKER_CONFIGS = {
     "pytorch-2.0": {
         "framework": "pytorch",
         "version": "2.0.0",
         "gpu": False,
-        "startup_time": 10,  # seconds
+        "startup_time": 5,  # seconds
         "idle_timeout": 300,  # 5 minutes
         "extra": "pytorch_2_0",
     },
@@ -32,15 +32,14 @@ WORKER_CONFIGS = {
         "framework": "pytorch",
         "version": "2.1.0",
         "gpu": False,
-        "startup_time": 10,
+        "startup_time": 5,
         "idle_timeout": 300,
-        "extra": "pytorch_2_1",
     },
     "pytorch-2.0-gpu": {
         "framework": "pytorch",
         "version": "2.0.0",
         "gpu": True,
-        "startup_time": 15,
+        "startup_time": 8,
         "idle_timeout": 600,  # 10 minutes for GPU workers
         "extra": "pytorch_2_0_gpu",
     },
@@ -48,15 +47,14 @@ WORKER_CONFIGS = {
         "framework": "pytorch",
         "version": "2.1.0",
         "gpu": True,
-        "startup_time": 15,
+        "startup_time": 8,
         "idle_timeout": 600,
-        "extra": "pytorch_2_1_gpu",
     },
     "tensorflow": {
         "framework": "tensorflow",
         "version": "2.13.0",
         "gpu": False,
-        "startup_time": 12,
+        "startup_time": 10,
         "idle_timeout": 300,
         "extra": "tensorflow",
     },
@@ -64,7 +62,7 @@ WORKER_CONFIGS = {
         "framework": "sklearn",
         "version": "1.3.0",
         "gpu": False,
-        "startup_time": 5,
+        "startup_time": 3,
         "idle_timeout": 300,
         "extra": "sklearn",
     },
@@ -72,21 +70,22 @@ WORKER_CONFIGS = {
 
 
 @dataclass
-class WorkerInstance:
+class LocalWorkerInstance:
     worker_id: str
     worker_type: str
-    process: subprocess.Popen
+    process_id: int
     status: str  # starting, running, stopping, stopped
     created_at: datetime
     last_activity: datetime
     job_count: int = 0
     max_jobs: int = 2
+    working_directory: str = ""
 
 
 class LocalWorkerManager:
     def __init__(self):
         self.redis_client: Optional[redis.Redis] = None
-        self.active_workers: Dict[str, WorkerInstance] = {}
+        self.active_workers: Dict[str, LocalWorkerInstance] = {}
         self.worker_queues: Dict[str, str] = {
             "pytorch-2.0": "ai:training:pytorch-2.0:queue",
             "pytorch-2.1": "ai:training:pytorch-2.1:queue",
@@ -110,12 +109,11 @@ class LocalWorkerManager:
         logger.info("Connected to Redis")
 
     async def start_worker(self, worker_type: str) -> str:
-        """Start a new worker process."""
-        if worker_type not in WORKER_CONFIGS:
+        """Start a new local worker process."""
+        if worker_type not in LOCAL_WORKER_CONFIGS:
             raise ValueError(f"Unknown worker type: {worker_type}")
 
-        config = WORKER_CONFIGS[worker_type]
-        worker_id = f"{worker_type}-{int(time.time())}"
+        config = LOCAL_WORKER_CONFIGS[worker_type]
 
         # Check if we already have enough workers of this type
         active_count = sum(
@@ -128,98 +126,98 @@ class LocalWorkerManager:
             logger.warning(f"Maximum workers reached for {worker_type}")
             return None
 
-        logger.info(f"Starting worker {worker_id} of type {worker_type}")
+        worker_id = f"{worker_type}-{int(time.time())}"
+        logger.info(f"Starting local worker {worker_id} of type {worker_type}")
 
         # Create worker instance
-        worker = WorkerInstance(
+        worker = LocalWorkerInstance(
             worker_id=worker_id,
             worker_type=worker_type,
-            process=None,  # Will be set below
+            process_id=0,  # Will be set after process starts
             status="starting",
             created_at=datetime.now(),
             last_activity=datetime.now(),
+            working_directory=os.path.join(os.path.dirname(os.getcwd()), "ai-worker"),
         )
+        self.active_workers[worker_id] = worker
 
+        # Start local worker process
         try:
-            # Start worker process
             await self._start_local_worker(worker, config)
             worker.status = "running"
-            self.active_workers[worker_id] = worker
-            logger.info(f"Worker {worker_id} started successfully")
+            logger.info(
+                f"Local worker {worker_id} started successfully (PID: {worker.process_id})"
+            )
             return worker_id
         except Exception as e:
             worker.status = "stopped"
-            logger.error(f"Failed to start worker {worker_id}: {e}")
+            logger.error(f"Failed to start local worker {worker_id}: {e}")
             return None
 
-    async def _start_local_worker(self, worker: WorkerInstance, config: Dict):
+    async def _start_local_worker(self, worker: LocalWorkerInstance, config: Dict):
         """Start a local worker process."""
         # Set environment variables
         env = os.environ.copy()
         env.update(
             {
-                "WORKER_TYPE": worker.worker_type,
-                "MODEL_FRAMEWORK": config["framework"],
-                "MODEL_VERSION": config["version"],
                 "REDIS_HOST": os.getenv("REDIS_HOST", "localhost"),
                 "REDIS_PORT": os.getenv("REDIS_PORT", "6379"),
                 "REDIS_DB": os.getenv("REDIS_DB", "0"),
+                "MODEL_FRAMEWORK": config["framework"],
+                "MODEL_VERSION": config["version"],
+                "WORKER_TYPE": worker.worker_type,
             }
         )
 
         if config["gpu"]:
             env["USE_GPU"] = "true"
 
-        # Change to ai-worker directory
-        ai_worker_dir = os.path.join(os.path.dirname(__file__), "..", "..", "ai-worker")
-
-        # Start the worker process
+        # Build command
         cmd = ["uv", "run", "python", "run_worker.py"]
 
+        # Start process
         process = subprocess.Popen(
             cmd,
-            cwd=ai_worker_dir,
+            cwd=worker.working_directory,
             env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
         )
 
-        worker.process = process
+        worker.process_id = process.pid
 
         # Wait for worker to be ready
         await asyncio.sleep(config["startup_time"])
 
+        # Check if process is still running
+        if process.poll() is not None:
+            stdout, stderr = process.communicate()
+            raise Exception(f"Worker process exited: stdout={stdout}, stderr={stderr}")
+
     async def stop_worker(self, worker_id: str) -> bool:
-        """Stop a worker process."""
+        """Stop a local worker process."""
         if worker_id not in self.active_workers:
             return False
 
         worker = self.active_workers[worker_id]
-        logger.info(f"Stopping worker {worker_id}")
+        logger.info(f"Stopping local worker {worker_id} (PID: {worker.process_id})")
 
         try:
-            if worker.process and worker.process.poll() is None:
-                # Process is still running
-                worker.process.terminate()
+            # Terminate the process
+            if worker.process_id > 0:
+                process = subprocess.Popen(
+                    ["kill", str(worker.process_id)],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+                process.wait()
 
-                # Wait for graceful shutdown
-                try:
-                    worker.process.wait(timeout=10)
-                except subprocess.TimeoutExpired:
-                    # Force kill if it doesn't stop gracefully
-                    worker.process.kill()
-                    worker.process.wait()
-
-                worker.status = "stopped"
-                logger.info(f"Worker {worker_id} stopped successfully")
-                return True
-            else:
-                worker.status = "stopped"
-                logger.info(f"Worker {worker_id} was already stopped")
-                return True
+            worker.status = "stopped"
+            logger.info(f"Local worker {worker_id} stopped successfully")
+            return True
         except Exception as e:
-            logger.error(f"Error stopping worker {worker_id}: {e}")
+            logger.error(f"Error stopping local worker {worker_id}: {e}")
             return False
 
     async def get_available_worker(self, worker_type: str) -> Optional[str]:
@@ -231,8 +229,6 @@ class LocalWorkerManager:
                 worker.worker_type == worker_type
                 and worker.status == "running"
                 and worker.job_count < worker.max_jobs
-                and worker.process
-                and worker.process.poll() is None  # Process is still running
             )
         ]
 
@@ -268,13 +264,7 @@ class LocalWorkerManager:
             if worker.status != "running":
                 continue
 
-            # Check if process is still running
-            if worker.process and worker.process.poll() is not None:
-                # Process has died
-                worker.status = "stopped"
-                continue
-
-            config = WORKER_CONFIGS[worker.worker_type]
+            config = LOCAL_WORKER_CONFIGS[worker.worker_type]
             idle_time = current_time - worker.last_activity
 
             if (
@@ -284,7 +274,7 @@ class LocalWorkerManager:
                 idle_workers.append(worker_id)
 
         for worker_id in idle_workers:
-            logger.info(f"Cleaning up idle worker {worker_id}")
+            logger.info(f"Cleaning up idle local worker {worker_id}")
             await self.stop_worker(worker_id)
 
     async def get_worker_status(self) -> Dict:
@@ -302,21 +292,10 @@ class LocalWorkerManager:
                         if w.worker_type == worker_type and w.status == "running"
                     ]
                 )
-                for worker_type in WORKER_CONFIGS.keys()
+                for worker_type in LOCAL_WORKER_CONFIGS.keys()
             },
             "worker_details": {
-                worker_id: {
-                    "worker_id": worker.worker_id,
-                    "worker_type": worker.worker_type,
-                    "status": worker.status,
-                    "created_at": worker.created_at.isoformat(),
-                    "last_activity": worker.last_activity.isoformat(),
-                    "job_count": worker.job_count,
-                    "max_jobs": worker.max_jobs,
-                    "process_running": worker.process.poll() is None
-                    if worker.process
-                    else False,
-                }
+                worker_id: asdict(worker)
                 for worker_id, worker in self.active_workers.items()
             },
         }
@@ -337,12 +316,12 @@ class LocalWorkerManager:
 
 
 # Global worker manager instance
-worker_manager = LocalWorkerManager()
+local_worker_manager = LocalWorkerManager()
 
 # FastAPI app
 app = FastAPI(
     title="Local Worker Manager API",
-    description="API for managing dynamic AI workers locally",
+    description="API for managing dynamic local AI workers",
     version="1.0.0",
 )
 
@@ -350,23 +329,23 @@ app = FastAPI(
 @app.on_event("startup")
 async def startup_event():
     """Initialize the worker manager."""
-    await worker_manager.connect_redis()
-    await worker_manager.start_cleanup_task()
+    await local_worker_manager.connect_redis()
+    await local_worker_manager.start_cleanup_task()
     logger.info("Local Worker Manager started")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on shutdown."""
-    if worker_manager.cleanup_task:
-        worker_manager.cleanup_task.cancel()
+    if local_worker_manager.cleanup_task:
+        local_worker_manager.cleanup_task.cancel()
     logger.info("Local Worker Manager stopped")
 
 
 @app.post("/workers/start/{worker_type}")
 async def start_worker_endpoint(worker_type: str):
     """Start a new worker of the specified type."""
-    worker_id = await worker_manager.start_worker(worker_type)
+    worker_id = await local_worker_manager.start_worker(worker_type)
     if worker_id:
         return {"worker_id": worker_id, "status": "started"}
     else:
@@ -376,7 +355,7 @@ async def start_worker_endpoint(worker_type: str):
 @app.post("/workers/stop/{worker_id}")
 async def stop_worker_endpoint(worker_id: str):
     """Stop a specific worker."""
-    success = await worker_manager.stop_worker(worker_id)
+    success = await local_worker_manager.stop_worker(worker_id)
     if success:
         return {"status": "stopped"}
     else:
@@ -386,13 +365,13 @@ async def stop_worker_endpoint(worker_id: str):
 @app.get("/workers/status")
 async def get_worker_status_endpoint():
     """Get status of all workers."""
-    return await worker_manager.get_worker_status()
+    return await local_worker_manager.get_worker_status()
 
 
 @app.post("/workers/ensure/{worker_type}")
 async def ensure_worker_endpoint(worker_type: str):
     """Ensure a worker is available for the specified type."""
-    worker_id = await worker_manager.ensure_worker_available(worker_type)
+    worker_id = await local_worker_manager.ensure_worker_available(worker_type)
     if worker_id:
         return {"worker_id": worker_id, "status": "available"}
     else:
