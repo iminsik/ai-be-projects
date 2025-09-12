@@ -559,25 +559,41 @@ class AIWorker:
         import torch
         import numpy as np
 
-        # Simulate PyTorch inference
+        # Get the model_id from the job data (passed from backend)
+        # For now, we'll simulate loading the model
         logger.info(f"Running inference with PyTorch {model_type} model")
-        # Simulate inference time
-        await asyncio.sleep(1)
+
+        # Simulate loading the model
+        logger.info(f"Loading model for inference...")
+        await asyncio.sleep(0.5)
+
+        # Simulate inference processing
+        logger.info(f"Processing input data: {input_data}")
+        await asyncio.sleep(0.5)
 
         # Update progress
         await self.update_job_status(
             job_id, "running", {"progress": 1.0, "framework": "pytorch"}
         )
 
+        # Simulate inference results
+        inference_results = {
+            "predictions": [
+                {"label": "positive", "confidence": 0.95},
+                {"label": "negative", "confidence": 0.05},
+            ],
+            "input_processed": input_data,
+            "parameters_used": parameters,
+            "inference_time": 1.0,
+        }
+
         return {
-            "model_id": f"pytorch_model_{job_id}",
-            "model_path": os.path.join(
-                Config.MODEL_STORAGE_PATH, f"pytorch_model_{job_id}"
-            ),
+            "model_type": model_type,
             "framework": "pytorch",
+            "results": inference_results,
             "metrics": {
-                "accuracy": 0.95,
-                "inference_time": 1,
+                "inference_time": 1.0,
+                "confidence": 0.95,
             },
         }
 
@@ -590,23 +606,38 @@ class AIWorker:
 
         # Simulate TensorFlow inference
         logger.info(f"Running inference with TensorFlow {model_type} model")
-        # Simulate inference time
-        await asyncio.sleep(1)
+
+        # Simulate loading the model
+        logger.info(f"Loading model for inference...")
+        await asyncio.sleep(0.5)
+
+        # Simulate inference processing
+        logger.info(f"Processing input data: {input_data}")
+        await asyncio.sleep(0.5)
 
         # Update progress
         await self.update_job_status(
             job_id, "running", {"progress": 1.0, "framework": "tensorflow"}
         )
 
+        # Simulate inference results
+        inference_results = {
+            "predictions": [
+                {"label": "positive", "confidence": 0.92},
+                {"label": "negative", "confidence": 0.08},
+            ],
+            "input_processed": input_data,
+            "parameters_used": parameters,
+            "inference_time": 1.0,
+        }
+
         return {
-            "model_id": f"tensorflow_model_{job_id}",
-            "model_path": os.path.join(
-                Config.MODEL_STORAGE_PATH, f"tensorflow_model_{job_id}"
-            ),
+            "model_type": model_type,
             "framework": "tensorflow",
+            "results": inference_results,
             "metrics": {
-                "accuracy": 0.92,
-                "inference_time": 1,
+                "inference_time": 1.0,
+                "confidence": 0.92,
             },
         }
 
@@ -619,23 +650,38 @@ class AIWorker:
 
         # Simulate scikit-learn inference
         logger.info(f"Running inference with scikit-learn {model_type} model")
-        # Simulate inference time
-        await asyncio.sleep(1)
+
+        # Simulate loading the model
+        logger.info(f"Loading model for inference...")
+        await asyncio.sleep(0.2)
+
+        # Simulate inference processing
+        logger.info(f"Processing input data: {input_data}")
+        await asyncio.sleep(0.3)
 
         # Update progress
         await self.update_job_status(
             job_id, "running", {"progress": 1.0, "framework": "sklearn"}
         )
 
+        # Simulate inference results
+        inference_results = {
+            "predictions": [
+                {"label": "positive", "confidence": 0.90},
+                {"label": "negative", "confidence": 0.10},
+            ],
+            "input_processed": input_data,
+            "parameters_used": parameters,
+            "inference_time": 0.5,
+        }
+
         return {
-            "model_id": f"sklearn_model_{job_id}",
-            "model_path": os.path.join(
-                Config.MODEL_STORAGE_PATH, f"sklearn_model_{job_id}"
-            ),
+            "model_type": model_type,
             "framework": "sklearn",
+            "results": inference_results,
             "metrics": {
-                "accuracy": 0.90,
-                "inference_time": 1,
+                "inference_time": 0.5,
+                "confidence": 0.90,
             },
         }
 

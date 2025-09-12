@@ -137,6 +137,16 @@ FRAMEWORK_QUEUES = {
     "pytorch-2.1-gpu": "ai:training:pytorch-2.1-gpu:queue",
 }
 
+# Framework-specific inference queues
+INFERENCE_QUEUES = {
+    "pytorch-2.0": "ai:inference:pytorch-2.0:queue",
+    "pytorch-2.1": "ai:inference:pytorch-2.1:queue",
+    "tensorflow": "ai:inference:tensorflow:queue",
+    "sklearn": "ai:inference:sklearn:queue",
+    "pytorch-2.0-gpu": "ai:inference:pytorch-2.0-gpu:queue",
+    "pytorch-2.1-gpu": "ai:inference:pytorch-2.1-gpu:queue",
+}
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -164,6 +174,48 @@ async def get_redis() -> redis.Redis:
     if redis_client is None:
         raise HTTPException(status_code=500, detail="Redis not initialized")
     return redis_client
+
+
+async def get_model_metadata(model_id: str) -> Optional[Dict]:
+    """Get model metadata from the model directory."""
+    try:
+        # Construct the path to the model info file
+        model_path = f"ai-worker/models/{model_id}/model_info.json"
+
+        if not os.path.exists(model_path):
+            logger.warning(f"Model metadata not found for {model_id}")
+            return None
+
+        with open(model_path, "r") as f:
+            metadata = json.load(f)
+            return metadata
+    except Exception as e:
+        logger.error(f"Error reading model metadata for {model_id}: {e}")
+        return None
+
+
+async def determine_framework_from_model_id(model_id: str) -> tuple[str, str]:
+    """Determine framework and worker type from model_id."""
+    # Extract framework from model_id prefix
+    if model_id.startswith("pytorch_model_"):
+        # Check if it's a GPU model by looking at the model metadata
+        metadata = await get_model_metadata(model_id)
+        if metadata and metadata.get("pytorch_version"):
+            version = metadata["pytorch_version"]
+            if version.startswith("2.0"):
+                return "pytorch-2.0", "pytorch-2.0"
+            elif version.startswith("2.1"):
+                return "pytorch-2.1", "pytorch-2.1"
+        # Default to pytorch-2.1 if version not found
+        return "pytorch-2.1", "pytorch-2.1"
+    elif model_id.startswith("tensorflow_model_"):
+        return "tensorflow", "tensorflow"
+    elif model_id.startswith("sklearn_model_"):
+        return "sklearn", "sklearn"
+    else:
+        # Default fallback
+        logger.warning(f"Unknown model type for {model_id}, defaulting to pytorch-2.1")
+        return "pytorch-2.1", "pytorch-2.1"
 
 
 async def ensure_worker_available(worker_type: str) -> bool:
@@ -387,29 +439,61 @@ async def submit_training_job(request: TrainingJobRequest):
 
 @app.post("/jobs/inference", response_model=JobStatus)
 async def submit_inference_job(request: InferenceJobRequest):
-    """Submit a new inference job to the queue."""
+    """Submit a new inference job to the appropriate framework-specific queue."""
     job_id = str(uuid.uuid4())
 
-    # For inference, we need to determine the framework from the model
-    # This would typically be stored in the model metadata
-    # For now, we'll use a default queue
-    queue_name = INFERENCE_QUEUE
+    # Determine framework and worker type from model_id
+    framework, worker_type = await determine_framework_from_model_id(request.model_id)
 
-    # Create job status
+    # Get the appropriate inference queue
+    queue_name = INFERENCE_QUEUES.get(worker_type, INFERENCE_QUEUE)
+
+    # Get model metadata for additional context
+    model_metadata = await get_model_metadata(request.model_id)
+
+    # Ensure worker is available for this framework
+    worker_available = await ensure_worker_available(worker_type)
+    if not worker_available:
+        raise HTTPException(
+            status_code=503,
+            detail=f"No workers available for {worker_type}. Please try again later.",
+        )
+
+    # Create job status with enhanced metadata
     metadata = {
         "model_id": request.model_id,
         "input_data": request.input_data,
         "parameters": request.parameters,
+        "model_framework": framework,
+        "worker_type": worker_type,
     }
-    job_status = await create_job_status(job_id, "inference", metadata)
 
-    # Add to inference queue
+    # Add model metadata if available
+    if model_metadata:
+        metadata.update(
+            {
+                "model_type": model_metadata.get("model_type"),
+                "framework": model_metadata.get("framework"),
+            }
+        )
+
+    job_status = await create_job_status(
+        job_id, "inference", metadata, framework=framework, worker_type=worker_type
+    )
+
+    # Add to framework-specific inference queue
     redis_client = await get_redis()
     job_data = {
         "job_id": job_id,
         "model_id": request.model_id,
         "input_data": request.input_data,
         "parameters": request.parameters,
+        "worker_type": worker_type,
+        "framework": framework,
+        "model_type": model_metadata.get("model_type", "unknown")
+        if model_metadata
+        else "unknown",
+        "requires_gpu": "gpu" in worker_type,
     }
 
     await redis_client.lpush(queue_name, json.dumps(job_data))
