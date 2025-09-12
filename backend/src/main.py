@@ -391,51 +391,17 @@ async def submit_inference_job(request: InferenceJobRequest):
     job_id = str(uuid.uuid4())
 
     # For inference, we need to determine the framework from the model
-    # Try to find the model in completed training jobs to get framework info
-    model_framework = "pytorch"  # Default fallback
-    worker_type = "pytorch-2.1"  # Default fallback
-
-    try:
-        # Look for the model in recent completed training jobs
-        all_jobs = await redis_client.keys(f"{JOB_STATUS_PREFIX}*")
-        for job_key in all_jobs[:100]:  # Check recent 100 jobs
-            job_data = await redis_client.get(job_key)
-            if job_data:
-                job = json.loads(job_data)
-                if (
-                    job.get("job_type") == "training"
-                    and job.get("status") == "completed"
-                    and job.get("result", {}).get("model_id") == request.model_id
-                ):
-                    model_framework = job.get("framework", "pytorch")
-                    worker_type = job.get("worker_type", "pytorch-2.1")
-                    break
-    except Exception as e:
-        logger.warning(f"Could not determine model framework: {e}")
-
-    # Determine the appropriate inference queue
-    if worker_type in FRAMEWORK_QUEUES:
-        # Use framework-specific training queue as base, replace 'training' with 'inference'
-        training_queue = FRAMEWORK_QUEUES[worker_type]
-        queue_name = training_queue.replace("training", "inference")
-    else:
-        queue_name = INFERENCE_QUEUE
+    # This would typically be stored in the model metadata
+    # For now, we'll use a default queue
+    queue_name = INFERENCE_QUEUE
 
     # Create job status
     metadata = {
         "model_id": request.model_id,
         "input_data": request.input_data,
         "parameters": request.parameters,
-        "model_framework": model_framework,
-        "worker_type": worker_type,
     }
-    job_status = await create_job_status(
-        job_id,
-        "inference",
-        metadata,
-        framework=model_framework,
-        worker_type=worker_type,
-    )
+    job_status = await create_job_status(job_id, "inference", metadata)
 
     # Add to inference queue
     redis_client = await get_redis()
@@ -444,8 +410,6 @@ async def submit_inference_job(request: InferenceJobRequest):
         "model_id": request.model_id,
         "input_data": request.input_data,
         "parameters": request.parameters,
-        "model_framework": model_framework,
-        "worker_type": worker_type,
     }
 
     await redis_client.lpush(queue_name, json.dumps(job_data))

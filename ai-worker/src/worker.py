@@ -471,21 +471,6 @@ class AIWorker:
             f"Starting inference job {job_id} for model type: {model_type} using {self.framework}"
         )
 
-        # Check if job was cancelled before starting
-        if await self.check_job_cancellation(job_id):
-            logger.info(f"Job {job_id} was cancelled before processing")
-            return
-
-        # Check if model exists (basic validation)
-        if not model_id or model_id == "":
-            error_msg = "Model ID is required for inference"
-            await self.update_job_status(job_id, "failed", error=error_msg)
-            return
-
-        logger.info(
-            f"Inference job {job_id}: model_id={model_id}, input_length={len(input_data)}"
-        )
-
         try:
             # GPU memory check and optimization
             if requires_gpu and self.gpu_manager:
@@ -574,47 +559,15 @@ class AIWorker:
         import torch
         import numpy as np
 
-        # Check for cancellation before inference
-        if await self.check_job_cancellation(job_id):
-            logger.info(f"Job {job_id} cancelled during inference")
-            return {"cancelled": True}
-
         # Simulate PyTorch inference
         logger.info(f"Running inference with PyTorch {model_type} model")
-        logger.info(f"Input data: {input_data[:100]}...")  # Log first 100 chars
-        logger.info(f"Parameters: {parameters}")
-
         # Simulate inference time
-        await asyncio.sleep(2)
+        await asyncio.sleep(1)
 
         # Update progress
         await self.update_job_status(
-            job_id,
-            "running",
-            {"progress": 0.5, "framework": "pytorch", "stage": "loading_model"},
+            job_id, "running", {"progress": 1.0, "framework": "pytorch"}
         )
-
-        # Check for cancellation during inference
-        if await self.check_job_cancellation(job_id):
-            logger.info(f"Job {job_id} cancelled during inference")
-            return {"cancelled": True}
-
-        await asyncio.sleep(1)  # Simulate more processing
-
-        # Update progress
-        await self.update_job_status(
-            job_id,
-            "running",
-            {"progress": 1.0, "framework": "pytorch", "stage": "completed"},
-        )
-
-        # Generate mock prediction based on input
-        prediction = (
-            "positive"
-            if "good" in input_data.lower() or "great" in input_data.lower()
-            else "negative"
-        )
-        confidence = 0.95 if prediction == "positive" else 0.87
 
         return {
             "model_id": f"pytorch_model_{job_id}",
@@ -622,12 +575,9 @@ class AIWorker:
                 Config.MODEL_STORAGE_PATH, f"pytorch_model_{job_id}"
             ),
             "framework": "pytorch",
-            "prediction": prediction,
-            "confidence": confidence,
-            "input_processed": input_data,
             "metrics": {
-                "inference_time": 3,
-                "confidence": confidence,
+                "accuracy": 0.95,
+                "inference_time": 1,
             },
         }
 
@@ -696,8 +646,6 @@ class AIWorker:
         logger.info(f"Starting worker loop for {self.worker_type}")
         logger.info(f"Training queue: {training_queue}")
         logger.info(f"Inference queue: {inference_queue}")
-        logger.info(f"Framework: {self.framework}")
-        logger.info(f"Worker ID: {self.worker_id}")
 
         while self.running:
             try:
