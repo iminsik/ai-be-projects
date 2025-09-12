@@ -84,24 +84,93 @@ export function JobStatusCard({ job, onRefresh, onJobCancelled }: JobStatusCardP
           </div>
         )}
 
+        {/* Progress indicator for running jobs */}
+        {job.status === 'running' && job.result && job.result.progress !== undefined && (
+          <div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium text-gray-600">Progress:</span>
+              <span className="text-gray-900">{Math.round(job.result.progress * 100)}%</span>
+            </div>
+            <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-primary-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${job.result.progress * 100}%` }}
+              />
+            </div>
+            {job.result.stage && (
+              <p className="text-xs text-gray-500 mt-1">Stage: {job.result.stage}</p>
+            )}
+          </div>
+        )}
+
         {job.metadata && (
           <div>
             <span className="font-medium text-gray-600">Details:</span>
             <div className="mt-1 space-y-1">
-              {job.metadata.model_type && (
-                <p className="text-sm text-gray-700">
-                  <span className="font-medium">Model:</span> {job.metadata.model_type}
-                </p>
+              {/* Training job metadata */}
+              {job.job_type === 'training' && (
+                <>
+                  {job.metadata.model_type && (
+                    <p className="text-sm text-gray-700">
+                      <span className="font-medium">Model:</span> {job.metadata.model_type}
+                    </p>
+                  )}
+                  {job.metadata.description && (
+                    <p className="text-sm text-gray-700">
+                      <span className="font-medium">Description:</span> {truncateText(job.metadata.description, 100)}
+                    </p>
+                  )}
+                  {job.metadata.data_path && (
+                    <p className="text-sm text-gray-700">
+                      <span className="font-medium">Data Path:</span> {truncateText(job.metadata.data_path, 50)}
+                    </p>
+                  )}
+                  {job.metadata.hyperparameters && (
+                    <div className="mt-2">
+                      <p className="text-sm font-medium text-gray-800">Hyperparameters:</p>
+                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        {Object.entries(job.metadata.hyperparameters).map(([key, value]) => (
+                          <p key={key} className="text-sm text-gray-700">
+                            <span className="font-medium">{key}:</span> {typeof value === 'number' ? value.toFixed(4) : value}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
-              {job.metadata.description && (
-                <p className="text-sm text-gray-700">
-                  <span className="font-medium">Description:</span> {truncateText(job.metadata.description, 100)}
-                </p>
-              )}
-              {job.metadata.data_path && (
-                <p className="text-sm text-gray-700">
-                  <span className="font-medium">Data Path:</span> {truncateText(job.metadata.data_path, 50)}
-                </p>
+              
+              {/* Inference job metadata */}
+              {job.job_type === 'inference' && (
+                <>
+                  {job.metadata.model_id && (
+                    <p className="text-sm text-gray-700">
+                      <span className="font-medium">Model ID:</span> {job.metadata.model_id}
+                    </p>
+                  )}
+                  {job.metadata.input_data && (
+                    <p className="text-sm text-gray-700">
+                      <span className="font-medium">Input Data:</span> {truncateText(job.metadata.input_data, 100)}
+                    </p>
+                  )}
+                  {job.metadata.parameters && Object.keys(job.metadata.parameters).length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-sm font-medium text-gray-800">Parameters:</p>
+                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        {Object.entries(job.metadata.parameters).map(([key, value]) => (
+                          <p key={key} className="text-sm text-gray-700">
+                            <span className="font-medium">{key}:</span> {typeof value === 'number' ? value.toFixed(4) : value}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {job.metadata.model_framework && (
+                    <p className="text-sm text-gray-700">
+                      <span className="font-medium">Model Framework:</span> {job.metadata.model_framework}
+                    </p>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -118,27 +187,75 @@ export function JobStatusCard({ job, onRefresh, onJobCancelled }: JobStatusCardP
           <div className="rounded-md bg-success-50 p-3">
             <p className="text-sm font-medium text-success-800">Results:</p>
             <div className="mt-2 space-y-1">
-              {job.result.model_id && (
-                <p className="text-sm text-success-700">
-                  <span className="font-medium">Model ID:</span> {job.result.model_id}
-                </p>
+              {/* Training job results */}
+              {job.job_type === 'training' && (
+                <>
+                  {job.result.model_id && (
+                    <p className="text-sm text-success-700">
+                      <span className="font-medium">Model ID:</span> {job.result.model_id}
+                    </p>
+                  )}
+                  {job.result.model_path && (
+                    <p className="text-sm text-success-700">
+                      <span className="font-medium">Model Path:</span> {truncateText(job.result.model_path, 50)}
+                    </p>
+                  )}
+                  {job.result.metrics && (
+                    <div className="mt-2">
+                      <p className="text-sm font-medium text-success-800">Metrics:</p>
+                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        {Object.entries(job.result.metrics).map(([key, value]) => (
+                          <p key={key} className="text-sm text-success-700">
+                            <span className="font-medium">{key}:</span> {typeof value === 'number' ? value.toFixed(4) : value}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
-              {job.result.model_path && (
-                <p className="text-sm text-success-700">
-                  <span className="font-medium">Model Path:</span> {truncateText(job.result.model_path, 50)}
-                </p>
-              )}
-              {job.result.metrics && (
-                <div className="mt-2">
-                  <p className="text-sm font-medium text-success-800">Metrics:</p>
-                  <div className="grid grid-cols-2 gap-2 mt-1">
-                    {Object.entries(job.result.metrics).map(([key, value]) => (
-                      <p key={key} className="text-sm text-success-700">
-                        <span className="font-medium">{key}:</span> {typeof value === 'number' ? value.toFixed(4) : value}
-                      </p>
-                    ))}
-                  </div>
-                </div>
+              
+              {/* Inference job results */}
+              {job.job_type === 'inference' && (
+                <>
+                  {job.result.prediction && (
+                    <p className="text-sm text-success-700">
+                      <span className="font-medium">Prediction:</span> {job.result.prediction}
+                    </p>
+                  )}
+                  {job.result.confidence && (
+                    <p className="text-sm text-success-700">
+                      <span className="font-medium">Confidence:</span> {(job.result.confidence * 100).toFixed(2)}%
+                    </p>
+                  )}
+                  {job.result.input_processed && (
+                    <p className="text-sm text-success-700">
+                      <span className="font-medium">Processed Input:</span> {truncateText(job.result.input_processed, 100)}
+                    </p>
+                  )}
+                  {job.result.model_id && (
+                    <p className="text-sm text-success-700">
+                      <span className="font-medium">Model ID:</span> {job.result.model_id}
+                    </p>
+                  )}
+                  {job.result.framework && (
+                    <p className="text-sm text-success-700">
+                      <span className="font-medium">Framework:</span> {job.result.framework}
+                    </p>
+                  )}
+                  {job.result.metrics && (
+                    <div className="mt-2">
+                      <p className="text-sm font-medium text-success-800">Metrics:</p>
+                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        {Object.entries(job.result.metrics).map(([key, value]) => (
+                          <p key={key} className="text-sm text-success-700">
+                            <span className="font-medium">{key}:</span> {typeof value === 'number' ? value.toFixed(4) : value}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
