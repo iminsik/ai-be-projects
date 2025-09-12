@@ -112,7 +112,7 @@ class InferenceJobRequest(BaseModel):
 class JobStatus(BaseModel):
     job_id: str
     job_type: str
-    status: str  # pending, running, completed, failed
+    status: str  # pending, running, completed, failed, cancelled
     created_at: datetime
     updated_at: datetime
     result: Optional[Dict] = None
@@ -478,6 +478,39 @@ async def get_worker_status():
         raise HTTPException(
             status_code=503, detail=f"Error connecting to worker manager: {str(e)}"
         )
+
+
+@app.delete("/jobs/{job_id}")
+async def cancel_job(job_id: str):
+    """Cancel a job by setting its status to cancelled."""
+    redis_client = await get_redis()
+
+    # Check if job exists
+    job_status = await get_job_status(job_id)
+    if not job_status:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Check if job can be cancelled
+    if job_status.status in ["completed", "failed", "cancelled"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Job cannot be cancelled. Current status: {job_status.status}",
+        )
+
+    # Update job status to cancelled
+    await update_job_status(job_id, "cancelled", error="Job cancelled by user")
+
+    # Add job to cancellation queue for workers to process
+    cancellation_data = {
+        "job_id": job_id,
+        "cancelled_at": datetime.utcnow().isoformat(),
+        "reason": "user_request",
+    }
+    await redis_client.lpush("ai:job:cancellations", json.dumps(cancellation_data))
+
+    # Get updated job status
+    updated_job = await get_job_status(job_id)
+    return updated_job
 
 
 @app.get("/health")

@@ -7,9 +7,10 @@ import type { JobStatus } from '../../types';
 
 interface JobListProps {
   refreshTrigger: number;
+  onJobCancelled?: (jobId: string) => void;
 }
 
-export function JobList({ refreshTrigger }: JobListProps) {
+export function JobList({ refreshTrigger, onJobCancelled }: JobListProps) {
   const [jobs, setJobs] = useState<JobStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -119,6 +120,7 @@ export function JobList({ refreshTrigger }: JobListProps) {
               key={job.job_id}
               job={job}
               onRefresh={() => refreshJob(job.job_id)}
+              onJobCancelled={onJobCancelled}
             />
           ))}
         </div>

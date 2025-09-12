@@ -1,17 +1,38 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card';
 import { Badge } from '../ui/Badge';
+import { Button } from '../ui/Button';
 import { formatDate, getStatusColor, getStatusIcon, truncateText } from '../../lib/utils';
+import { apiClient } from '../../lib/api';
 import type { JobStatus } from '../../types';
 
 interface JobStatusCardProps {
   job: JobStatus;
   onRefresh?: () => void;
+  onJobCancelled?: (jobId: string) => void;
 }
 
-export function JobStatusCard({ job, onRefresh }: JobStatusCardProps) {
+export function JobStatusCard({ job, onRefresh, onJobCancelled }: JobStatusCardProps) {
+  const [cancelling, setCancelling] = useState(false);
   const statusColor = getStatusColor(job.status);
   const statusIcon = getStatusIcon(job.status);
+
+  const canCancel = job.status === 'pending' || job.status === 'running';
+
+  const handleCancel = async () => {
+    if (!canCancel) return;
+    
+    setCancelling(true);
+    try {
+      await apiClient.cancelJob(job.job_id);
+      onJobCancelled?.(job.job_id);
+      onRefresh?.();
+    } catch (error) {
+      console.error('Failed to cancel job:', error);
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -123,16 +144,27 @@ export function JobStatusCard({ job, onRefresh }: JobStatusCardProps) {
           </div>
         )}
 
-        {onRefresh && (
-          <div className="pt-2 border-t">
+        <div className="pt-2 border-t flex justify-between items-center">
+          {onRefresh && (
             <button
               onClick={onRefresh}
               className="text-sm text-primary-600 hover:text-primary-700 font-medium"
             >
               Refresh Status
             </button>
-          </div>
-        )}
+          )}
+          
+          {canCancel && (
+            <Button
+              onClick={handleCancel}
+              loading={cancelling}
+              variant="destructive"
+              size="sm"
+            >
+              Cancel Job
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

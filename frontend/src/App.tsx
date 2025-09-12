@@ -40,6 +40,11 @@ function App() {
     setActiveTab('jobs');
   };
 
+  const handleJobCancelled = (jobId: string) => {
+    console.log('Job cancelled:', jobId);
+    setRefreshTrigger(prev => prev + 1);
+  };
+
   const tabs = [
     { id: 'training', label: 'Training', icon: '🧠' },
     { id: 'inference', label: 'Inference', icon: '🔮' },
@@ -134,7 +139,7 @@ function App() {
                 Refresh
               </Button>
             </div>
-            <JobList refreshTrigger={refreshTrigger} />
+            <JobList refreshTrigger={refreshTrigger} onJobCancelled={handleJobCancelled} />
           </div>
         )}
 

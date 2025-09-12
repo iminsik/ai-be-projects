@@ -165,6 +165,45 @@ class AIWorker:
 
             await self.redis_client.set(status_key, json.dumps(job_status), ex=86400)
 
+    async def check_job_cancellation(self, job_id: str) -> bool:
+        """Check if a job has been cancelled."""
+        status_key = f"{JOB_STATUS_PREFIX}{job_id}"
+        status_data = await self.redis_client.get(status_key)
+
+        if status_data:
+            job_status = json.loads(status_data)
+            return job_status.get("status") == "cancelled"
+
+        return False
+
+    async def process_cancellations(self):
+        """Process job cancellation requests."""
+        try:
+            # Check for cancellation requests
+            cancellation_data = await self.redis_client.blpop(
+                "ai:job:cancellations", timeout=0.1
+            )
+            if cancellation_data:
+                cancellation = json.loads(cancellation_data[1])
+                job_id = cancellation["job_id"]
+                logger.info(f"Processing cancellation for job {job_id}")
+
+                # Check if job is currently running and stop it
+                status_key = f"{JOB_STATUS_PREFIX}{job_id}"
+                status_data = await self.redis_client.get(status_key)
+
+                if status_data:
+                    job_status = json.loads(status_data)
+                    if job_status.get("status") == "running":
+                        # Mark job as cancelled
+                        await self.update_job_status(
+                            job_id, "cancelled", error="Job cancelled by user"
+                        )
+                        logger.info(f"Job {job_id} marked as cancelled")
+
+        except Exception as e:
+            logger.error(f"Error processing cancellations: {e}")
+
     async def process_training_job_with_semaphore(self, job_data: Dict):
         """Process a training job with resource limits."""
         async with self.semaphore:
@@ -186,6 +225,11 @@ class AIWorker:
         logger.info(
             f"Starting training job {job_id} for model type: {model_type} using {self.framework}"
         )
+
+        # Check if job was cancelled before starting
+        if await self.check_job_cancellation(job_id):
+            logger.info(f"Job {job_id} was cancelled before processing")
+            return
 
         try:
             # GPU memory check and optimization
@@ -282,6 +326,13 @@ class AIWorker:
         batch_size = hyperparameters.get("batch_size", 8)
 
         for epoch in range(epochs):
+            # Check for cancellation before each epoch
+            if await self.check_job_cancellation(job_id):
+                logger.info(
+                    f"Job {job_id} cancelled during training at epoch {epoch + 1}"
+                )
+                return {"cancelled": True, "epoch": epoch + 1}
+
             logger.info(f"PyTorch training epoch {epoch + 1}/{epochs}")
             # Simulate training time
             await asyncio.sleep(2)
@@ -598,6 +649,9 @@ class AIWorker:
 
         while self.running:
             try:
+                # Process cancellation requests
+                await self.process_cancellations()
+
                 # Check for training jobs
                 training_job = await self.redis_client.blpop(training_queue, timeout=1)
                 if training_job:

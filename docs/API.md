@@ -284,14 +284,44 @@ Get the current status of a job.
 ```
 
 **Status Values:**
-- `queued`: Job is waiting to be processed
+- `pending`: Job is waiting to be processed
 - `running`: Job is currently being processed
 - `completed`: Job completed successfully
 - `failed`: Job failed with an error
+- `cancelled`: Job was cancelled by user
 
 **Example:**
 ```bash
 curl "http://localhost:8000/jobs/job_12345678-1234-1234-1234-123456789012/status"
+```
+
+### Cancel Job
+
+#### `DELETE /jobs/{job_id}`
+
+Cancel a running or pending job.
+
+**Path Parameters:**
+- `job_id` (string): The unique identifier of the job to cancel
+
+**Response:**
+```json
+{
+  "job_id": "job_12345678-1234-1234-1234-123456789012",
+  "status": "cancelled",
+  "created_at": "2024-01-15T10:30:00Z",
+  "updated_at": "2024-01-15T10:35:00Z",
+  "error": "Job cancelled by user"
+}
+```
+
+**Error Responses:**
+- `404`: Job not found
+- `400`: Job cannot be cancelled (already completed, failed, or cancelled)
+
+**Example:**
+```bash
+curl -X DELETE "http://localhost:8000/jobs/job_12345678-1234-1234-1234-123456789012"
 ```
 
 ### List Jobs

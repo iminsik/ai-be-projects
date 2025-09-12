@@ -16,7 +16,7 @@ export interface InferenceJobRequest {
 export interface JobStatus {
   job_id: string;
   job_type: 'training' | 'inference';
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
   created_at: string;
   updated_at: string;
   result?: Record<string, any>;
