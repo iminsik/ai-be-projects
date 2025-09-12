@@ -88,9 +88,29 @@ export function JobStatusCard({ job, onRefresh, onJobCancelled }: JobStatusCardP
           <div>
             <span className="font-medium text-gray-600">Details:</span>
             <div className="mt-1 space-y-1">
+              {job.metadata.model_id && (
+                <p className="text-sm text-gray-700">
+                  <span className="font-medium">Model ID:</span> {job.metadata.model_id}
+                </p>
+              )}
               {job.metadata.model_type && (
                 <p className="text-sm text-gray-700">
-                  <span className="font-medium">Model:</span> {job.metadata.model_type}
+                  <span className="font-medium">Model Type:</span> {job.metadata.model_type}
+                </p>
+              )}
+              {job.metadata.input_data && (
+                <p className="text-sm text-gray-700">
+                  <span className="font-medium">Input Data:</span> {job.metadata.input_data}
+                </p>
+              )}
+              {job.metadata.data_path && (
+                <p className="text-sm text-gray-700">
+                  <span className="font-medium">Data Path:</span> {truncateText(job.metadata.data_path, 50)}
+                </p>
+              )}
+              {job.metadata.model_framework && (
+                <p className="text-sm text-gray-700">
+                  <span className="font-medium">Model Framework:</span> {job.metadata.model_framework}
                 </p>
               )}
               {job.metadata.description && (
@@ -98,10 +118,17 @@ export function JobStatusCard({ job, onRefresh, onJobCancelled }: JobStatusCardP
                   <span className="font-medium">Description:</span> {truncateText(job.metadata.description, 100)}
                 </p>
               )}
-              {job.metadata.data_path && (
-                <p className="text-sm text-gray-700">
-                  <span className="font-medium">Data Path:</span> {truncateText(job.metadata.data_path, 50)}
-                </p>
+              {job.metadata.parameters && Object.keys(job.metadata.parameters).length > 0 && (
+                <div className="mt-2">
+                  <p className="text-sm font-medium text-gray-600">Parameters:</p>
+                  <div className="grid grid-cols-2 gap-2 mt-1">
+                    {Object.entries(job.metadata.parameters).map(([key, value]) => (
+                      <p key={key} className="text-sm text-gray-700">
+                        <span className="font-medium">{key}:</span> {typeof value === 'number' ? value.toFixed(4) : String(value)}
+                      </p>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           </div>

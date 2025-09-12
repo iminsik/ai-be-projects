@@ -21,7 +21,16 @@ export interface JobStatus {
   updated_at: string;
   result?: Record<string, any>;
   error?: string;
-  metadata?: Record<string, any>;
+  metadata?: {
+    model_id?: string;
+    model_type?: string;
+    input_data?: string;
+    data_path?: string;
+    parameters?: Record<string, any>;
+    model_framework?: string;
+    worker_type?: string;
+    description?: string;
+  };
   framework?: string;
   worker_type?: string;
 }
