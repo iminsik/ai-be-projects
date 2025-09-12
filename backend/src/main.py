@@ -9,6 +9,7 @@ from typing import Dict, List, Optional
 import redis.asyncio as redis
 import httpx
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 # Configure logging
@@ -28,6 +29,20 @@ app = FastAPI(
     title="AI Job Queue API",
     description="API for submitting and monitoring AI training and inference jobs",
     version="1.0.0",
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Redis connection

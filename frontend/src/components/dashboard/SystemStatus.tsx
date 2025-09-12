@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
-import { apiClient } from '../../lib/api';
+import { api } from '../../lib/api';
 import type { HealthStatus, WorkerStatus, FrameworkInfo } from '../../types';
 
 export function SystemStatus() {
@@ -16,9 +16,9 @@ export function SystemStatus() {
     try {
       setError(null);
       const [healthData, workersData, frameworksData] = await Promise.all([
-        apiClient.getHealth(),
-        apiClient.getWorkerStatus(),
-        apiClient.getFrameworks(),
+        api.getHealth(),
+        api.getWorkerStatus(),
+        api.getFrameworks(),
       ]);
       
       setHealth(healthData);

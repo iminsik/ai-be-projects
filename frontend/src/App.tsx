@@ -5,7 +5,7 @@ import { JobList } from './components/jobs/JobList';
 import { SystemStatus } from './components/dashboard/SystemStatus';
 import { Button } from './components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/Card';
-import { apiClient } from './lib/api';
+import { api } from './lib/api';
 import type { JobStatus } from './types';
 
 function App() {
@@ -17,7 +17,7 @@ function App() {
   useEffect(() => {
     const loadAvailableModels = async () => {
       try {
-        const jobs = await apiClient.listJobs(100);
+        const jobs = await api.getJobs();
         const completedTrainingJobs = jobs.filter(
           job => job.job_type === 'training' && 
                  job.status === 'completed' && 

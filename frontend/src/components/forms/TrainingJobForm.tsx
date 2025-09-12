@@ -4,7 +4,7 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Textarea } from '../ui/Textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card';
-import { apiClient } from '../../lib/api';
+import { api } from '../../lib/api';
 import type { TrainingJobRequest, FrameworkInfo } from '../../types';
 
 interface TrainingJobFormProps {
@@ -65,7 +65,7 @@ export function TrainingJobForm({ onJobSubmitted }: TrainingJobFormProps) {
 
   const loadFrameworks = async () => {
     try {
-      const frameworkInfo = await apiClient.getFrameworks();
+      const frameworkInfo = await api.getFrameworks();
       setFrameworks(frameworkInfo);
     } catch (err) {
       console.error('Failed to load frameworks:', err);
@@ -78,7 +78,7 @@ export function TrainingJobForm({ onJobSubmitted }: TrainingJobFormProps) {
     setError(null);
 
     try {
-      const job = await apiClient.submitTrainingJob(formData);
+      const job = await api.submitTrainingJob(formData);
       onJobSubmitted(job.job_id);
       
       // Reset form

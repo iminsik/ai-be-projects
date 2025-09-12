@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { JobStatusCard } from './JobStatusCard';
 import { Button } from '../ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card';
-import { apiClient } from '../../lib/api';
+import { api } from '../../lib/api';
 import type { JobStatus } from '../../types';
 
 interface JobListProps {
@@ -19,7 +19,7 @@ export function JobList({ refreshTrigger, onJobCancelled }: JobListProps) {
   const loadJobs = async () => {
     try {
       setError(null);
-      const jobList = await apiClient.listJobs(50);
+      const jobList = await api.getJobs();
       setJobs(jobList);
     } catch (err: any) {
       setError(err.response?.data?.detail || err.message || 'Failed to load jobs');
@@ -30,7 +30,7 @@ export function JobList({ refreshTrigger, onJobCancelled }: JobListProps) {
 
   const refreshJob = async (jobId: string) => {
     try {
-      const updatedJob = await apiClient.getJobStatus(jobId);
+      const updatedJob = await api.getJobStatus(jobId);
       setJobs(prev => prev.map(job => 
         job.job_id === jobId ? updatedJob : job
       ));

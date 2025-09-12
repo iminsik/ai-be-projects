@@ -3,7 +3,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Textarea } from '../ui/Textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card';
-import { apiClient } from '../../lib/api';
+import { api } from '../../lib/api';
 import type { InferenceJobRequest } from '../../types';
 
 interface InferenceJobFormProps {
@@ -26,7 +26,7 @@ export function InferenceJobForm({ onJobSubmitted, availableModels }: InferenceJ
     setError(null);
 
     try {
-      const job = await apiClient.submitInferenceJob(formData);
+      const job = await api.submitInferenceJob(formData);
       onJobSubmitted(job.job_id);
       
       // Reset form

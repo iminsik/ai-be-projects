@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { formatDate, getStatusColor, getStatusIcon, truncateText } from '../../lib/utils';
-import { apiClient } from '../../lib/api';
+import { api } from '../../lib/api';
 import type { JobStatus } from '../../types';
 
 interface JobStatusCardProps {
@@ -24,7 +24,7 @@ export function JobStatusCard({ job, onRefresh, onJobCancelled }: JobStatusCardP
     
     setCancelling(true);
     try {
-      await apiClient.cancelJob(job.job_id);
+      await api.cancelJob(job.job_id);
       onJobCancelled?.(job.job_id);
       onRefresh?.();
     } catch (error) {
