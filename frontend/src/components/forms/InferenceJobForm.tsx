@@ -14,7 +14,7 @@ interface InferenceJobFormProps {
 export function InferenceJobForm({ onJobSubmitted, availableModels }: InferenceJobFormProps) {
   const [formData, setFormData] = useState<InferenceJobRequest>({
     model_id: '',
-    input_data: '',
+    input_data: '/data/inference.csv',
     parameters: {},
   });
   const [loading, setLoading] = useState(false);

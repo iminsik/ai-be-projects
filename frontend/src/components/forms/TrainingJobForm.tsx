@@ -38,7 +38,7 @@ const defaultHyperparameters = {
 export function TrainingJobForm({ onJobSubmitted }: TrainingJobFormProps) {
   const [formData, setFormData] = useState<TrainingJobRequest>({
     model_type: 'bert',
-    data_path: '',
+    data_path: '/data/training.csv',
     hyperparameters: defaultHyperparameters.bert,
     description: '',
     requires_gpu: false,
