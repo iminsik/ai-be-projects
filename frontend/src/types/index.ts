@@ -1,5 +1,6 @@
 export interface TrainingJobRequest {
   model_type: string;
+  model_name?: string;
   data_path: string;
   hyperparameters?: Record<string, any>;
   description?: string;
@@ -56,4 +57,13 @@ export interface HealthStatus {
   redis?: string;
   timestamp?: string;
   version?: string;
+}
+
+export interface ModelInfo {
+  model_id: string;
+  model_name: string;
+  model_type: string;
+  framework: string;
+  created_at: string;
+  description: string;
 }

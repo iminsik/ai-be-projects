@@ -6,6 +6,7 @@ import { JobList } from './components/jobs/JobList';
 import { SystemStatus } from './components/dashboard/SystemStatus';
 import { Button } from './components/ui/Button';
 import { api } from './lib/api';
+import type { JobStatus, ModelInfo } from './types';
 
 // Context for sharing state between layout and pages
 const AppContext = React.createContext<{
@@ -27,20 +28,14 @@ function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
 
-  // Load available models from completed training jobs
+  // Load available models from the new models endpoint
   useEffect(() => {
     const loadAvailableModels = async () => {
       try {
-        const jobs = await api.getJobs();
-        const completedTrainingJobs = jobs.filter(
-          job => job.job_type === 'training' && 
-                 job.status === 'completed' && 
-                 job.result?.model_id
-        );
-        const modelIds = completedTrainingJobs.map(job => job.result!.model_id);
-        setAvailableModels([...new Set(modelIds)]);
+        const modelsData = await api.getModels();
+        setAvailableModels(modelsData.models);
       } catch (err) {
         console.error('Failed to load available models:', err);
       }

@@ -105,6 +105,7 @@ MODEL_FRAMEWORK_REGISTRY = {
 # Pydantic models
 class TrainingJobRequest(BaseModel):
     model_type: str = Field(..., description="Type of model to train")
+    model_name: Optional[str] = Field(None, description="Custom name for the model")
     data_path: str = Field(..., description="Path to training data")
     hyperparameters: Optional[Dict] = Field(
         default_factory=dict, description="Training hyperparameters"
@@ -420,6 +421,7 @@ async def submit_training_job(request: TrainingJobRequest):
     # Create job status
     metadata = {
         "model_type": request.model_type,
+        "model_name": request.model_name,
         "data_path": request.data_path,
         "hyperparameters": request.hyperparameters,
         "description": request.description,
@@ -439,6 +441,7 @@ async def submit_training_job(request: TrainingJobRequest):
     job_data = {
         "job_id": job_id,
         "model_type": request.model_type,
+        "model_name": request.model_name,
         "data_path": request.data_path,
         "hyperparameters": request.hyperparameters,
         "description": request.description,
@@ -621,6 +624,52 @@ async def health_check():
         return {"status": "healthy", "redis": "connected"}
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Service unhealthy: {str(e)}")
+
+
+@app.get("/models")
+async def get_available_models():
+    """Get list of available trained models with their names and IDs."""
+    try:
+        # Use the existing list_jobs function instead of get_all_jobs
+        jobs = await list_jobs(
+            limit=1000
+        )  # Get more jobs to find all completed training jobs
+        completed_training_jobs = [
+            job
+            for job in jobs
+            if job.job_type == "training"
+            and job.status == "completed"
+            and job.result
+            and job.result.get("model_id")
+        ]
+
+        models = []
+        for job in completed_training_jobs:
+            model_id = job.result["model_id"]
+            model_metadata = await get_model_metadata(model_id)
+
+            # Use custom name if available, otherwise generate from model type and timestamp
+            model_name = (
+                job.metadata.get("model_name")
+                or model_metadata.get("model_name")
+                or f"{job.metadata.get('model_type', 'unknown')}_{job.created_at[:10]}"
+            )
+
+            models.append(
+                {
+                    "model_id": model_id,
+                    "model_name": model_name,
+                    "model_type": job.metadata.get("model_type", "unknown"),
+                    "framework": job.framework,
+                    "created_at": job.created_at,
+                    "description": job.metadata.get("description", ""),
+                }
+            )
+
+        return {"models": models}
+    except Exception as e:
+        logger.error(f"Error getting available models: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get available models")
 
 
 if __name__ == "__main__":

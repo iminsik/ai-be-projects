@@ -5,7 +5,7 @@ import { Select } from '../ui/Select';
 import { Textarea } from '../ui/Textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card';
 import { api } from '../../lib/api';
-import type { TrainingJobRequest, FrameworkInfo } from '../../types';
+import type { TrainingJobRequest, FrameworkInfo, ModelInfo } from '../../types';
 
 interface TrainingJobFormProps {
   onJobSubmitted: (jobId: string) => void;
@@ -38,6 +38,7 @@ const defaultHyperparameters = {
 export function TrainingJobForm({ onJobSubmitted }: TrainingJobFormProps) {
   const [formData, setFormData] = useState<TrainingJobRequest>({
     model_type: 'bert',
+    model_name: '',
     data_path: '/data/training.csv',
     hyperparameters: defaultHyperparameters.bert,
     description: '',
@@ -84,6 +85,7 @@ export function TrainingJobForm({ onJobSubmitted }: TrainingJobFormProps) {
       // Reset form
       setFormData({
         model_type: 'bert',
+        model_name: '',
         data_path: '',
         hyperparameters: defaultHyperparameters.bert,
         description: '',
@@ -146,15 +148,22 @@ export function TrainingJobForm({ onJobSubmitted }: TrainingJobFormProps) {
             />
 
             <Input
+              label="Model Name (Optional)"
+              placeholder="e.g., My BERT Model"
+              value={formData.model_name || ''}
+              onChange={(e) => handleInputChange('model_name', e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
               label="Data Path"
               placeholder="/data/training.csv"
               value={formData.data_path}
               onChange={(e) => handleInputChange('data_path', e.target.value)}
               required
             />
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium text-gray-700">GPU Required</label>
               <div className="mt-1">
@@ -169,7 +178,9 @@ export function TrainingJobForm({ onJobSubmitted }: TrainingJobFormProps) {
                 </label>
               </div>
             </div>
+          </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Select
               label="Framework Override (Optional)"
               value={formData.framework_override || ''}

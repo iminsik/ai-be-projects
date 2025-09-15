@@ -4,11 +4,11 @@ import { Input } from '../ui/Input';
 import { Textarea } from '../ui/Textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card';
 import { api } from '../../lib/api';
-import type { InferenceJobRequest } from '../../types';
+import type { InferenceJobRequest, ModelInfo } from '../../types';
 
 interface InferenceJobFormProps {
   onJobSubmitted: (jobId: string) => void;
-  availableModels: string[];
+  availableModels: ModelInfo[];
 }
 
 export function InferenceJobForm({ onJobSubmitted, availableModels }: InferenceJobFormProps) {
@@ -60,7 +60,10 @@ export function InferenceJobForm({ onJobSubmitted, availableModels }: InferenceJ
   };
 
   const modelOptions = availableModels.length > 0 
-    ? availableModels.map(model => ({ value: model, label: model }))
+    ? availableModels.map(model => ({ 
+        value: model.model_id, 
+        label: `${model.model_name} (${model.model_type})` 
+      }))
     : [{ value: '', label: 'No trained models available' }];
 
   return (
@@ -81,7 +84,7 @@ export function InferenceJobForm({ onJobSubmitted, availableModels }: InferenceJ
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-gray-700">Model ID</label>
+              <label className="text-sm font-medium text-gray-700">Model</label>
               <select
                 value={formData.model_id}
                 onChange={(e) => handleInputChange('model_id', e.target.value)}

@@ -218,6 +218,7 @@ class AIWorker:
         """Process a training job using the appropriate framework."""
         job_id = job_data["job_id"]
         model_type = job_data["model_type"]
+        model_name = job_data.get("model_name")  # Extract model name
         data_path = job_data["data_path"]
         hyperparameters = job_data.get("hyperparameters", {})
         requires_gpu = job_data.get("requires_gpu", Config.USE_GPU)
@@ -283,15 +284,15 @@ class AIWorker:
             # Framework-specific training
             if self.framework == "pytorch":
                 result = await self._train_pytorch_model(
-                    job_id, model_type, data_path, hyperparameters
+                    job_id, model_type, model_name, data_path, hyperparameters
                 )
             elif self.framework == "tensorflow":
                 result = await self._train_tensorflow_model(
-                    job_id, model_type, data_path, hyperparameters
+                    job_id, model_type, model_name, data_path, hyperparameters
                 )
             elif self.framework == "sklearn":
                 result = await self._train_sklearn_model(
-                    job_id, model_type, data_path, hyperparameters
+                    job_id, model_type, model_name, data_path, hyperparameters
                 )
             else:
                 raise ValueError(f"Unsupported framework: {self.framework}")
@@ -315,7 +316,12 @@ class AIWorker:
             await self.update_job_status(job_id, "failed", error=str(e))
 
     async def _train_pytorch_model(
-        self, job_id: str, model_type: str, data_path: str, hyperparameters: Dict
+        self,
+        job_id: str,
+        model_type: str,
+        model_name: str,
+        data_path: str,
+        hyperparameters: Dict,
     ) -> Dict:
         """Train a PyTorch model."""
         import torch
@@ -353,6 +359,7 @@ class AIWorker:
         # Save model info
         model_info = {
             "model_id": model_id,
+            "model_name": model_name,  # Include model name
             "model_type": model_type,
             "framework": "pytorch",
             "pytorch_version": torch.__version__,
@@ -371,13 +378,19 @@ class AIWorker:
 
         return {
             "model_id": model_id,
+            "model_name": model_name,  # Include model name in result
             "model_path": model_path,
             "framework": "pytorch",
             "metrics": model_info["metrics"],
         }
 
     async def _train_tensorflow_model(
-        self, job_id: str, model_type: str, data_path: str, hyperparameters: Dict
+        self,
+        job_id: str,
+        model_type: str,
+        model_name: str,
+        data_path: str,
+        hyperparameters: Dict,
     ) -> Dict:
         """Train a TensorFlow model."""
         import tensorflow as tf
@@ -407,6 +420,7 @@ class AIWorker:
         # Save model info
         model_info = {
             "model_id": model_id,
+            "model_name": model_name,  # Include model name
             "model_type": model_type,
             "framework": "tensorflow",
             "tensorflow_version": tf.__version__,
@@ -425,13 +439,19 @@ class AIWorker:
 
         return {
             "model_id": model_id,
+            "model_name": model_name,  # Include model name
             "model_path": model_path,
             "framework": "tensorflow",
             "metrics": model_info["metrics"],
         }
 
     async def _train_sklearn_model(
-        self, job_id: str, model_type: str, data_path: str, hyperparameters: Dict
+        self,
+        job_id: str,
+        model_type: str,
+        model_name: str,
+        data_path: str,
+        hyperparameters: Dict,
     ) -> Dict:
         """Train a scikit-learn model."""
         import sklearn
@@ -448,6 +468,7 @@ class AIWorker:
 
         return {
             "model_id": f"sklearn_model_{job_id}",
+            "model_name": model_name,  # Include model name
             "model_path": os.path.join(
                 Config.MODEL_STORAGE_PATH, f"sklearn_model_{job_id}"
             ),
