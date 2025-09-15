@@ -325,9 +325,9 @@ def determine_framework_and_queue(
 
         # Determine if GPU version should be used
         if requires_gpu and framework == "pytorch":
-            worker_type = f"{framework}-{version}-gpu"
-        else:
             worker_type = f"{framework}-{version}"
+        else:
+            worker_type = f"{framework}"
 
         if worker_type in FRAMEWORK_QUEUES:
             return worker_type, FRAMEWORK_QUEUES[worker_type]
