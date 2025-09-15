@@ -34,6 +34,7 @@ LOCAL_WORKER_CONFIGS = {
         "gpu": False,
         "startup_time": 5,
         "idle_timeout": 300,
+        "extra": "pytorch_2_1",
     },
     "pytorch-2.0-gpu": {
         "framework": "pytorch",
@@ -49,6 +50,7 @@ LOCAL_WORKER_CONFIGS = {
         "gpu": True,
         "startup_time": 8,
         "idle_timeout": 600,
+        "extra": "pytorch_2_1_gpu",
     },
     "tensorflow": {
         "framework": "tensorflow",
@@ -156,6 +158,21 @@ class LocalWorkerManager:
 
     async def _start_local_worker(self, worker: LocalWorkerInstance, config: Dict):
         """Start a local worker process."""
+        # Install dependencies first if needed
+        if "extra" in config:
+            logger.info(f"Installing dependencies for {worker.worker_type}...")
+            install_cmd = ["uv", "sync", "--extra", config["extra"]]
+            install_result = subprocess.run(
+                install_cmd,
+                cwd=worker.working_directory,
+                capture_output=True,
+                text=True,
+            )
+            if install_result.returncode != 0:
+                raise Exception(
+                    f"Failed to install dependencies: {install_result.stderr}"
+                )
+
         # Set environment variables
         env = os.environ.copy()
         env.update(
