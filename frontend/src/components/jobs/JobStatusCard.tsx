@@ -34,6 +34,19 @@ export function JobStatusCard({ job, onRefresh, onJobCancelled }: JobStatusCardP
     }
   };
 
+  // Get model name from metadata or result
+  const getModelName = () => {
+    if (job.metadata?.model_name) {
+      return job.metadata.model_name;
+    }
+    if (job.result?.model_name) {
+      return job.result.model_name;
+    }
+    return null;
+  };
+
+  const modelName = getModelName();
+
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardHeader className="pb-3">
@@ -41,6 +54,11 @@ export function JobStatusCard({ job, onRefresh, onJobCancelled }: JobStatusCardP
           <div>
             <CardTitle className="text-lg">
               {job.job_type === 'training' ? 'Training Job' : 'Inference Job'}
+              {modelName && (
+                <span className="text-base font-normal text-gray-600 ml-2">
+                  - {modelName}
+                </span>
+              )}
             </CardTitle>
             <CardDescription className="text-sm">
               {job.job_id}
@@ -88,6 +106,11 @@ export function JobStatusCard({ job, onRefresh, onJobCancelled }: JobStatusCardP
           <div>
             <span className="font-medium text-gray-600">Details:</span>
             <div className="mt-1 space-y-1">
+              {modelName && (
+                <p className="text-sm text-gray-700">
+                  <span className="font-medium">Model Name:</span> {modelName}
+                </p>
+              )}
               {job.metadata.model_id && (
                 <p className="text-sm text-gray-700">
                   <span className="font-medium">Model ID:</span> {job.metadata.model_id}
@@ -148,6 +171,11 @@ export function JobStatusCard({ job, onRefresh, onJobCancelled }: JobStatusCardP
               {job.result.model_id && (
                 <p className="text-sm text-success-700">
                   <span className="font-medium">Model ID:</span> {job.result.model_id}
+                </p>
+              )}
+              {job.result.model_name && (
+                <p className="text-sm text-success-700">
+                  <span className="font-medium">Model Name:</span> {job.result.model_name}
                 </p>
               )}
               {job.result.model_path && (
